@@ -26,7 +26,6 @@ parser.add_argument("--output_dir", default='', type=str)
 parser.add_argument("--dtype", default='bfloat16', type=str)
 parser.add_argument("--use_vllm", action='store_true', default=False)
 parser.add_argument("--load_8bit", action='store_true', default=False)
-parser.add_argument("--cache_dir", default='/data/huggingface_models', type=str)
 parser.add_argument("--max_length", default=2048, type=int)
 # Data
 parser.add_argument("--task", required=True, choices=[
@@ -287,8 +286,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(
         args.model,
         padding_side="left",
-        trust_remote_code=True,
-        cache_dir=args.cache_dir)
+        trust_remote_code=True)
     
     if args.use_vllm:
         raise ValueError("SuperGLUE evaluation with vLLM is not supported yet.")
@@ -299,8 +297,7 @@ def main():
             base_model = AutoModelForCausalLM.from_pretrained(
                 config.base_model_name_or_path, 
                 torch_dtype="auto", 
-                device_map="auto", 
-                cache_dir=args.cache_dir)
+                device_map="auto")
             model = PeftModel.from_pretrained(
                 base_model, 
                 args.model, 
@@ -311,8 +308,7 @@ def main():
                 device_map="auto",
                 load_in_8bit=args.load_8bit,
                 torch_dtype="auto",
-                trust_remote_code=True,
-                cache_dir=args.cache_dir)
+                trust_remote_code=True)
         model.eval()
         
         # pad token is not added by default for pretrained models

@@ -21,7 +21,6 @@ run_task_on_gpu() {
         --model $model \
         --task $task \
         --max_length 2048 \
-        --cache_dir /data/hf_models \
         --output $task_output_dir"
 
     echo $eval_command

@@ -1,9 +1,9 @@
 #!/bin/bash
 
 ID=$((RANDOM % 90000 + 10000)) # generate 5-digit port number
-export header="torchrun --nproc_per_node 4 --nnodes 1 \
---rdzv-id=$ID --rdzv_backend c10d --rdzv-endpoint=localhost:$ID \
--m colm.train.train"
+export MASTER_PORT=$(python -c "import socket; s=socket.socket(); s.bind(('', 0)); print(s.getsockname()[1]); s.close()" 2>/dev/null || echo "29500")
+
+export header="torchrun --nproc_per_node 1 --nnodes 1 --master_port=$MASTER_PORT -m colm.train.train"
 
 export base_training_args="--do_train True \
 --max_seq_length 512 \
@@ -11,7 +11,6 @@ export base_training_args="--do_train True \
 --lr_scheduler_type linear \
 --warmup_ratio 0.03 \
 --weight_decay 0.0 \
---eval_strategy no \
 --logging_steps 1 \
 --num_train_epochs 4 \
 --bf16 False \
@@ -33,5 +32,4 @@ export base_training_args="--do_train True \
 --report_to wandb \
 --data_selection_method submodlib \
 --data_selection_unit mezo \
---cache_dir /data/hf_models \
 --facility_similarity cosine"

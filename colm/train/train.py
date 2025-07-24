@@ -40,6 +40,7 @@ from colm.train.data_arguments import DataArguments, get_data_statistics
 from colm.train.model_arguments import ModelArguments, add_padding_to_tokenizer
 from colm.train.training_arguments import TrainingArguments
 from colm.train.custom_phi import DecomposedPhiCausalLM
+from torch.utils.data import random_split
 
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ def main():
         # Set dropout to 0
         logger.info("Set dropout to 0")
         model_config = AutoConfig.from_pretrained(
-            model_args.model_name_or_path, cache_dir=model_args.cache_dir)
+            model_args.model_name_or_path)
         assert isinstance(
             model_config, PhiConfig), "Only support no dropout for Phi-2!"
         model_config.resid_pdrop = 0
@@ -111,14 +112,12 @@ def main():
             model_args.model_name_or_path,
             config=model_config,
             torch_dtype=DTYPES[model_args.torch_dtype],
-            trust_remote_code=True,
-            cache_dir=model_args.cache_dir)
+            trust_remote_code=True)
     else:
         model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             torch_dtype=DTYPES[model_args.torch_dtype],
-            trust_remote_code=True,
-            cache_dir=model_args.cache_dir)
+            trust_remote_code=True)
 
     if len(training_args.fsdp) > 0 and training_args.fsdp_config.get('activation_checkpointing', False):
         # Enable gradient checkpointing for reducing memory footprint
@@ -256,9 +255,18 @@ def main():
             data_args.train_files,
             tokenizer=tokenizer,
             max_seq_length=data_args.max_seq_length,
-            sample_percentage=data_args.percentage,
+            sample_percentage=0.9,
             subset_index_files=data_args.subset_index_files,
             seed=data_args.sample_data_seed)
+        # analysis_dataset = get_training_dataset(
+        #     data_args.train_files,
+        #     tokenizer=tokenizer,
+        #     max_seq_length=data_args.max_seq_length,
+        #     sample_percentage=0.1,
+        #     subset_selection="random",
+        #     subset_index_files=data_args.subset_index_files,
+        #     seed=data_args.sample_data_seed + 1000)
+        analysis_dataset = train_dataset
 
         logger.info(f'TRAIN DATASET: {train_dataset[0].keys()}')
         logger.info(f'TRAIN DATASET EXAMPLE: {train_dataset[0]}')
@@ -282,14 +290,19 @@ def main():
             train_dataset = train_dataset.remove_columns(
                 ["dataset", "id", "messages"])
 
-        analysis_dataset = None
-        if training_args.analysis_mode:
-            from colm.data.get_validation_dataset import get_dataset
-            analysis_dataset = get_dataset(
-                training_args.analysis_dataset,
-                data_dir=data_args.data_dir,
-                tokenizer=tokenizer,
-                max_length=data_args.max_seq_length)
+        # analysis_dataset = None
+        # if training_args.analysis_mode:
+        #     # from colm.data.get_validation_dataset import get_dataset
+        #     total_size = len(train_dataset)
+        #     train_size = int(0.9 * total_size)  # 80% train
+        #     val_size = total_size - train_size  # 20% validation
+
+        #     train_dataset, analysis_dataset = random_split(train_dataset, [train_size, val_size])
+        #     # analysis_dataset = get_dataset(
+        #     #     training_args.analysis_dataset,
+        #     #     data_dir=data_args.data_dir,
+        #     #     tokenizer=tokenizer,
+        #     #     max_length=data_args.max_seq_length)
 
     logger.info(f"Using data collator {type(data_collator)}")
 

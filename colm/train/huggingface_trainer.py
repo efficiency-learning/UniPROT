@@ -37,7 +37,6 @@ from transformers import Trainer
 from transformers.data.data_collator import DataCollator
 from transformers.debug_utils import DebugOption, DebugUnderflowOverflow
 from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_checkpoint, is_deepspeed_available
-from transformers.integrations.tpu import tpu_spmd_dataloader
 from transformers.modeling_utils import PreTrainedModel, unwrap_model
 from transformers.models.auto.modeling_auto import (
     MODEL_FOR_CAUSAL_LM_MAPPING_NAMES,
@@ -70,8 +69,9 @@ from transformers.utils import (
     is_peft_available,
     is_safetensors_available,
     is_sagemaker_mp_enabled,
-    is_torch_xla_available,
 )
+
+def is_torch_xla_available(): return False
 
 
 DEFAULT_CALLBACKS = [DefaultFlowCallback]
@@ -258,8 +258,6 @@ class CustomTrainer(Trainer):
         logger.debug(f"Currently training with a batch size of: {self._train_batch_size}")
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
-        if self.is_fsdp_xla_v2_enabled:
-            train_dataloader = tpu_spmd_dataloader(train_dataloader)
 
         # Setting up training control variables:
         # number of training epochs: num_train_epochs
@@ -671,15 +669,7 @@ class CustomTrainer(Trainer):
             self.control = self.callback_handler.on_epoch_end(args, self.state, self.control)
             self._maybe_log_save_evaluate(tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
-            if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
-                if is_torch_xla_available():
-                    # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
-                    xm.master_print(met.metrics_report())
-                else:
-                    logger.warning(
-                        "You enabled PyTorch/XLA debug metrics but you don't have a TPU "
-                        "configured. Check your training configuration if this is unexpected."
-                    )
+            
             if self.control.should_training_stop:
                 break
 

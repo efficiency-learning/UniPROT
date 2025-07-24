@@ -52,7 +52,6 @@ run_checkpoint() {
             --use_vllm \
             --dtype $dtype \
             --enable_lora \
-            --cache_dir /data/hf_models \
             --print"
         echo "GPU $device - Checkpoint $ckpt - Dataset $dataset: $eval_command"
         CUDA_VISIBLE_DEVICES=$device $eval_command 2>&1 | tee ${model_path}/${dataset}/eval.log
@@ -73,7 +72,6 @@ run_checkpoint() {
             --use_vllm \
             --dtype $dtype \
             --enable_lora \
-            --cache_dir /data/hf_models \
             --print"
         echo "GPU $device - Checkpoint $ckpt - Dataset $dataset: $eval_command"
         CUDA_VISIBLE_DEVICES=$device $eval_command 2>&1 | tee ${model_path}/${dataset}/eval.log

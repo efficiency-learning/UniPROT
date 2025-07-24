@@ -31,10 +31,13 @@ def temp_seed(seed):
         np.random.set_state(state)
 
 
-def get_training_dataset(train_files: List[str], tokenizer, max_seq_length, sample_percentage=1.0, subset_index_files=None, template_variation=False, seed=0):
+def get_training_dataset(train_files: List[str], tokenizer, max_seq_length, 
+                         sample_percentage=1.0, subset_index_files=None, 
+                         template_variation=False, seed=0, subset_selection = "use_small_sources"):
     """ get training dataset with a specified seed """
     raw_datasets = load_raw_dataset(
-            train_files, sample_percentage=sample_percentage, subset_index_files=subset_index_files, seed=seed)
+            train_files, sample_percentage=sample_percentage, subset_index_files=subset_index_files,
+            seed=seed, subset_selection=subset_selection)
     
     if "instruction" in raw_datasets.column_names:
         lm_datasets = SupervisedDataset(
@@ -48,12 +51,13 @@ def get_training_dataset(train_files: List[str], tokenizer, max_seq_length, samp
     return lm_datasets
 
 
-def load_raw_dataset(train_files: Union[List[str], str], sample_size=None, sample_percentage=1.0, subset_index_files=None, seed=0):
+def load_raw_dataset(train_files: Union[List[str], str], sample_size=None, 
+                     sample_percentage=1.0, subset_index_files=None, seed=0, subset_selection = "use_small_sources"):
     """ load raw dataset """
     if isinstance(train_files, str):
         train_files = [train_files]
     if len(train_files) == 1 and not train_files[0].endswith(".jsonl"):
-        processed_datasets = load_dataset(train_files[0], cache_dir="/data/huggingface_datasets")["train"]
+        processed_datasets = load_dataset(train_files[0])["train"]
         if (subset_index_files is not None) and (len(subset_index_files) == 1):
             subset_indices = torch.load(subset_index_files[0])
             processed_datasets = processed_datasets.select(subset_indices)
@@ -74,7 +78,7 @@ def load_raw_dataset(train_files: Union[List[str], str], sample_size=None, sampl
     if sample_size == len(processed_datasets):
         return processed_datasets  # not shuffle
 
-    subset_selection = "use_small_sources"
+    
     if subset_selection == "random":
         with temp_seed(seed):
             index = np.random.permutation(len(processed_datasets))[:sample_size]

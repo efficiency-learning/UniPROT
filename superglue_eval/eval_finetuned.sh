@@ -33,7 +33,6 @@ run_task_on_gpu() {
         --model $model/${task}/checkpoint-${ckpt} \
         --task $task \
         --max_length 2048 \
-        --cache_dir /data/hf_models"
 
     echo $eval_command
 

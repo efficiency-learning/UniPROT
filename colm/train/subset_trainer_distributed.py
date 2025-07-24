@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 # isort: off
 from transformers.integrations import hp_params
 from colm.train.utils import collate_fn
+import colm.train.utils as utils
 # isort: on
 import numpy as np
 import torch
@@ -38,7 +39,6 @@ from transformers import Trainer
 from transformers.data.data_collator import DataCollator
 from transformers.debug_utils import DebugOption, DebugUnderflowOverflow
 from transformers.integrations.deepspeed import deepspeed_init, deepspeed_load_checkpoint, is_deepspeed_available
-from transformers.integrations.tpu import tpu_spmd_dataloader
 from transformers.modeling_utils import PreTrainedModel, unwrap_model
 from transformers.models.auto.modeling_auto import (
     MODEL_FOR_CAUSAL_LM_MAPPING_NAMES,
@@ -71,10 +71,17 @@ from transformers.utils import (
     is_peft_available,
     is_safetensors_available,
     is_sagemaker_mp_enabled,
-    is_torch_xla_available,
 )
 
+def is_torch_xla_available(): return False
+
 from colm.train.facility_location import get_orders_and_weights
+from colm.train.SPOTgreedy import SPOT_GreedySubsetSelection
+from torch.utils.data import DataLoader, SubsetRandomSampler
+import random
+import colm.train.greats as greats
+import colm.train.fairot as fairot
+import json
 
 
 DEFAULT_CALLBACKS = [DefaultFlowCallback]
@@ -223,9 +230,28 @@ class SubsetTrainer(Trainer):
         self.prev_v_t = None
         self.named_parameters_to_optim = []
         self.original_grad_settings = {}
-        self.zo_random_seed = np.random.randint(1000000000)
-        self.random_selection_seed = np.random.randint(42)
+        # self.zo_random_seed = np.random.randint(1000000000)
+        self.zo_random_seed = 0
+        # self.random_selection_seed = np.random.randint(42)
+        self.random_selection_seed = 42
         self.data_collator = data_collator
+        self.method = args.data_selection_method
+        self.eval_dataset = eval_dataset
+        
+    def _log(self, tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval):
+        self._maybe_log_save_evaluate(tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
+        with open("/home/ganesh/CoLM/colm/train/logs/spot.log", "a") as f:
+            json.dump(f"epoch: {epoch}, loss: {float(tr_loss)}\n", f)
+        
+
+    def sample_k_random_items(self, k, seed=None):
+        from transformers import default_data_collator
+        dataset = self.eval_dataset
+        if seed is not None:
+            random.seed(seed)
+        indices = random.sample(range(len(dataset)), k)
+        samples = [dataset[i] for i in indices]
+        return default_data_collator(samples)
 
     def _get_collator_with_removed_columns(
         self, data_collator: Callable, description: Optional[str] = None
@@ -273,8 +299,6 @@ class SubsetTrainer(Trainer):
             f"Currently training with a batch size of: {self._train_batch_size}")
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
-        if self.is_fsdp_xla_v2_enabled:
-            train_dataloader = tpu_spmd_dataloader(train_dataloader)
 
         # Setting up training control variables:
         # number of training epochs: num_train_epochs
@@ -700,8 +724,8 @@ class SubsetTrainer(Trainer):
                                     include_in_selection.append(True)
 
                             max_samples -= len(list_idx_keep)
-                            logger.info(
-                                f"Exclude {len(list_idx_keep)} examples from selection. Select {max_samples} from the remaining {sum(include_in_selection)} examples.")
+                            # logger.info(
+                                # f"Exclude {len(list_idx_keep)} examples from selection. Select {max_samples} from the remaining {sum(include_in_selection)} examples.")
                             all_reps = all_reps[include_in_selection]
                             sampling_indices = sampling_indices[include_in_selection]
 
@@ -779,7 +803,7 @@ class SubsetTrainer(Trainer):
                                 if isinstance(source, torch.Tensor):
                                     source = source.item()
                                 source_list.append(source)
-                            logger.info(f"{sorted(Counter(source_list).items())}")
+                            # logger.info(f"{sorted(Counter(source_list).items())}")
                         else:
                             source_list = None
 
@@ -798,7 +822,8 @@ class SubsetTrainer(Trainer):
                             selected_idx, selected_weights = self.select_data(
                                 all_reps,
                                 max_samples=max_samples,
-                                source_list=source_list
+                                source_list=source_list,
+                                model=model
                             )
 
                             # Update Adam historical terms with mean of selected subset's last layer gradients for MeZO only
@@ -957,7 +982,7 @@ class SubsetTrainer(Trainer):
                     self.control = self.callback_handler.on_step_end(
                         args, self.state, self.control)
 
-                    self._maybe_log_save_evaluate(
+                    self._log(
                         tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
                     if self.control.should_epoch_stop or self.control.should_training_stop:
@@ -977,18 +1002,10 @@ class SubsetTrainer(Trainer):
 
             self.control = self.callback_handler.on_epoch_end(
                 args, self.state, self.control)
-            self._maybe_log_save_evaluate(
+            self._log(
                 tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
-            if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
-                if is_torch_xla_available():
-                    # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
-                    xm.master_print(met.metrics_report())
-                else:
-                    logger.warning(
-                        "You enabled PyTorch/XLA debug metrics but you don't have a TPU "
-                        "configured. Check your training configuration if this is unexpected."
-                    )
+            
             if self.control.should_training_stop:
                 break
 
@@ -1311,7 +1328,7 @@ class SubsetTrainer(Trainer):
 
         return masked_reps
 
-    def select_data(self, inputs, max_samples=64, source_list=None):
+    def select_data_facloc(self, inputs, max_samples=64, source_list=None, optim=None):
         """
         Select a subset of inputs based on model representations using Facility Location.
         """
@@ -1321,13 +1338,53 @@ class SubsetTrainer(Trainer):
             metric=self.args.facility_similarity,
             y=source_list,
             per_class_start=self.args.num_per_class_start,
-            strategy=self.args.source_wise_selection
+            strategy=self.args.source_wise_selection,
+            optim=optim
         )
         # Return subset indices as a list
         idx = greedy_indices[0]
         weights = greedy_indices[1]
 
         return idx, weights
+    
+    def select_data(self, inputs, max_samples=64, source_list=None, model=None):
+        """
+        Select a subset of inputs based on model representations using Facility Location.
+        """
+        tocpu = lambda x: x.cpu().numpy()
+        if(self.method in ["submodlib", "weightedsubmodlib"]): 
+            return self.select_data_facloc(inputs, max_samples, source_list)
+        
+        if(self.method == "spot"):
+            dist = utils.compute_cost_matrix(inputs, inputs, metric="cosine")
+            target_marginal = torch.ones((dist.shape[1],)).to(dist.device)
+            idx = SPOT_GreedySubsetSelection(dist, target_marginal, max_samples)
+            len = idx.shape[0]
+            weights = torch.ones_like(idx).to(dist.device)/len
+            return tocpu(idx), tocpu(weights)
+        
+        if(self.method == "greats"):
+            _, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
+            eval_inputs = self.sample_k_random_items(2)
+            # eval_reps = self.save_select(model, eval_inputs)
+            eval_reps = inputs
+            _, sims_cross = utils.compute_cost_matrix(inputs, eval_reps, metric="cosine", return_sims=True)
+            idx = greats.greedy_selection(tocpu(sims_cross.mean(1)), tocpu(sims), max_samples)
+            idx = torch.tensor(idx)
+            len = idx.shape[0]
+            weights = torch.ones_like(idx)/len
+            return tocpu(idx), tocpu(weights)
+        if(self.method == "fairot"):
+            _, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
+            idx = fairot.greedy_fairot(tocpu(sims), max_samples)
+            idx = torch.tensor(idx)
+            len = idx.shape[0]
+            weights = torch.ones_like(idx)/len
+            return tocpu(idx), tocpu(weights)
+        if(self.method == "fairot_multisource"):
+            return self.select_data_facloc(inputs, max_samples, source_list, optim=fairot.greedy_fairot)
+        
+
 
     def zo_perturb_parameters(self, random_seed=None, scaling_factor=1):
         """
@@ -1485,8 +1542,6 @@ class SubsetTrainerEfficient(SubsetTrainer):
             f"Currently training with a batch size of: {self._train_batch_size}")
         # Data loader and number of training steps
         train_dataloader = self.get_train_dataloader()
-        if self.is_fsdp_xla_v2_enabled:
-            train_dataloader = tpu_spmd_dataloader(train_dataloader)
 
         # Setting up training control variables:
         # number of training epochs: num_train_epochs
@@ -1886,8 +1941,8 @@ class SubsetTrainerEfficient(SubsetTrainer):
                                     include_in_selection.append(True)
 
                             max_samples -= len(list_idx_keep)
-                            logger.info(
-                                f"Exclude {len(list_idx_keep)} examples from selection. Select {max_samples} from the remaining {sum(include_in_selection)} examples.")
+                            # logger.info(
+                                # f"Exclude {len(list_idx_keep)} examples from selection. Select {max_samples} from the remaining {sum(include_in_selection)} examples.")
                             all_reps = all_reps[include_in_selection]
                             sampling_indices = sampling_indices[include_in_selection]
                         
@@ -1922,7 +1977,7 @@ class SubsetTrainerEfficient(SubsetTrainer):
                                 if isinstance(source, torch.Tensor):
                                     source = source.item()
                                 source_list.append(source)
-                            logger.info(f"Source count: {sorted(Counter(source_list).items())}")
+                            # logger.info(f"Source count: {sorted(Counter(source_list).items())}")
                         else:
                             source_list = None
 
@@ -1938,7 +1993,8 @@ class SubsetTrainerEfficient(SubsetTrainer):
                             selected_idx, _ = self.select_data(
                                 all_reps,
                                 max_samples=max_samples,
-                                source_list=source_list
+                                source_list=source_list,
+                                model=model
                             )
 
                             # Update Adam historical terms with mean of selected subset's last layer gradients for MeZO only
@@ -2096,15 +2152,6 @@ class SubsetTrainerEfficient(SubsetTrainer):
             self._maybe_log_save_evaluate(
                 tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
-            if DebugOption.TPU_METRICS_DEBUG in self.args.debug:
-                if is_torch_xla_available():
-                    # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
-                    xm.master_print(met.metrics_report())
-                else:
-                    logger.warning(
-                        "You enabled PyTorch/XLA debug metrics but you don't have a TPU "
-                        "configured. Check your training configuration if this is unexpected."
-                    )
             if self.control.should_training_stop:
                 break
 
