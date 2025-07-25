@@ -1,0 +1,235 @@
+Writing output to phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0
+Set LoRA for layers q_proj k_proj v_proj fc1 fc2 of microsoft/phi-2
+Set fp16 = True and bf16 = False and torch_dtype = none for microsoft/phi-2
+/home/ganesh/miniconda3/envs/colm/lib/python3.10/site-packages/transformers/utils/hub.py:127: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+2025-07-25 13:02:38.224092: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-07-25 13:02:38.239437: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1753428758.256010 3999707 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1753428758.261195 3999707 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1753428758.274335 3999707 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1753428758.274350 3999707 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1753428758.274352 3999707 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1753428758.274353 3999707 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2025-07-25 13:02:38.278358: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+(Relative) Frobenius norm difference (Extended Vanilla OT vs Partial OT): 0.657331
+(Relative) Diff between extended and partial ot -0.552156048036101
+POT library ot.partial.wasserstein: 5.229534
+07/25/2025 13:02:42 - WARNING - __main__ - Process rank: 0, device: cuda:0, n_gpu: 1distributed training: True, 16-bits training: True
+07/25/2025 13:02:42 - INFO - __main__ - Training parameters TrainingArguments(
+_n_gpu=1,
+accelerator_config={'split_batches': False, 'dispatch_batches': None, 'even_batches': True, 'use_seedable_sampler': True, 'non_blocking': False, 'gradient_accumulation_kwargs': None, 'use_configured_state': False},
+adafactor=False,
+adam_beta1=0.9,
+adam_beta2=0.999,
+adam_epsilon=1e-08,
+analysis_dataset=bbh,
+analysis_mode=True,
+auto_find_batch_size=False,
+batch_eval_metrics=False,
+bf16=False,
+bf16_full_eval=False,
+block_size=128,
+data_seed=None,
+data_selection_method=fairot_multisource,
+data_selection_unit=mezo,
+dataloader_drop_last=False,
+dataloader_num_workers=0,
+dataloader_persistent_workers=False,
+dataloader_pin_memory=True,
+dataloader_prefetch_factor=None,
+ddp_backend=None,
+ddp_broadcast_buffers=None,
+ddp_bucket_cap_mb=None,
+ddp_find_unused_parameters=None,
+ddp_timeout=1800,
+debug=[],
+deepspeed=None,
+disable_tqdm=False,
+dispatch_batches=None,
+do_eval=False,
+do_predict=False,
+do_train=True,
+efficient_mezo=True,
+eval_accumulation_steps=None,
+eval_delay=0,
+eval_do_concat_batches=True,
+eval_on_start=False,
+eval_steps=None,
+eval_strategy=no,
+eval_use_gather_object=False,
+evaluation_strategy=None,
+facility_similarity=cosine,
+fp16=True,
+fp16_backend=auto,
+fp16_full_eval=False,
+fp16_opt_level=O1,
+fsdp=[],
+fsdp_config={'min_num_params': 0, 'xla': False, 'xla_fsdp_v2': False, 'xla_fsdp_grad_ckpt': False},
+fsdp_min_num_params=0,
+fsdp_transformer_layer_cls_to_wrap=None,
+full_determinism=False,
+gradient_accumulation_steps=8,
+gradient_checkpointing=False,
+gradient_checkpointing_kwargs=None,
+greater_is_better=None,
+group_by_length=False,
+half_precision_backend=auto,
+hub_always_push=False,
+hub_model_id=None,
+hub_private_repo=False,
+hub_strategy=every_save,
+hub_token=<HUB_TOKEN>,
+ignore_data_skip=False,
+include_inputs_for_metrics=False,
+include_num_input_tokens_seen=False,
+include_tokens_per_second=False,
+jit_mode_eval=False,
+keep_sources=0_1_3_5_7_8_9_10_11_13,
+label_names=None,
+label_smoothing_factor=0.0,
+last_layer_index=31,
+last_layers=['31.self_attn.v_proj'],
+learning_rate=2e-05,
+length_column_name=length,
+load_best_model_at_end=False,
+local_rank=0,
+log_level=passive,
+log_level_replica=warning,
+log_on_each_node=True,
+logging_dir=./out/phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0/runs/Jul25_13-02-42_pratapgad,
+logging_first_step=False,
+logging_nan_inf_filter=True,
+logging_steps=1.0,
+logging_strategy=steps,
+lr_scheduler_kwargs={},
+lr_scheduler_type=linear,
+max_grad_norm=1.0,
+max_new_tokens=50,
+max_steps=10240,
+metric_for_best_model=None,
+mezo_eps=0.001,
+mezo_optim=adam,
+mezo_selection=grad,
+mezo_topk=largest,
+mezo_transform=none,
+model_id=0,
+modify_forward=False,
+mp_parameters=,
+nan_grad_clip_value=1.0,
+nan_grad_handling=none,
+neftune_noise_alpha=None,
+no_cuda=False,
+non_diff=False,
+num_per_class_start=floor,
+num_train_epochs=4.0,
+only_train_option=True,
+optim=adamw_torch,
+optim_args=None,
+optim_target_modules=None,
+output_dir=./out/phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0,
+overwrite_output_dir=True,
+past_index=-1,
+per_device_eval_batch_size=8,
+per_device_train_batch_size=4,
+prediction_loss_only=False,
+proj_dim=2560,
+projector_batch_size=16,
+push_to_hub=False,
+push_to_hub_model_id=None,
+push_to_hub_organization=None,
+push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
+ray_scope=last,
+remove_unused_columns=False,
+rep_dim=2560,
+report_to=['wandb'],
+restore_callback_states_from_checkpoint=False,
+resume_from_checkpoint=None,
+run_name=phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0,
+save_indices=False,
+save_on_each_node=False,
+save_only_model=False,
+save_safetensors=True,
+save_steps=256,
+save_strategy=steps,
+save_total_limit=None,
+seed=0,
+skip_memory_metrics=True,
+small_batch_ratio=0.5,
+source_wise_selection=proportional,
+split_batches=None,
+tf32=False,
+torch_compile=False,
+torch_compile_backend=None,
+torch_compile_mode=None,
+torch_empty_cache_steps=None,
+torchdynamo=None,
+tpu_metrics_debug=False,
+tpu_num_cores=None,
+train_dataset_names=None,
+use_cpu=False,
+use_ipex=False,
+use_legacy_prediction_loop=False,
+use_mps_device=False,
+wandb_entity=hsgser,
+wandb_notes=Note,
+wandb_project=colm_math_lora_efficient,
+warmup_ratio=0.03,
+warmup_steps=0,
+weight_decay=0.0,
+zo_dim=2560,
+)
+07/25/2025 13:02:42 - INFO - __main__ - Model parameters ModelArguments(model_name_or_path='microsoft/phi-2', checkpoint_path=None, config_name=None, tokenizer_name=None, model_max_length=512, use_fast_tokenizer=True, model_revision='main', use_auth_token=False, torch_dtype='none', lora=True, lora_r=128, lora_alpha=512.0, lora_dropout=0.05, lora_target_modules=['q_proj', 'k_proj', 'v_proj', 'fc1', 'fc2'], enable_dropout=True)
+07/25/2025 13:02:42 - INFO - __main__ - Dataset parameters DataArguments(train_files=['/home/ganesh/CoLM/colm/data/MathInstruct.jsonl'], overwrite_cache=False, preprocessing_num_workers=None, max_seq_length=512, sample_data_seed=42, percentage=1.0, subset_index_files=[])
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file vocab.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/vocab.json
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file merges.txt from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/merges.txt
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file tokenizer.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/tokenizer.json
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file added_tokens.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/added_tokens.json
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file special_tokens_map.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/special_tokens_map.json
+[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:03:22,308 >> loading file tokenizer_config.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/tokenizer_config.json
+[INFO|tokenization_utils_base.py:2533] 2025-07-25 13:03:22,375 >> Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
+[INFO|configuration_utils.py:733] 2025-07-25 13:04:02,420 >> loading configuration file config.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/config.json
+[INFO|configuration_utils.py:800] 2025-07-25 13:04:02,422 >> Model config PhiConfig {
+  "_name_or_path": "microsoft/phi-2",
+  "architectures": [
+    "PhiForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 50256,
+  "embd_pdrop": 0.0,
+  "eos_token_id": 50256,
+  "hidden_act": "gelu_new",
+  "hidden_size": 2560,
+  "initializer_range": 0.02,
+  "intermediate_size": 10240,
+  "layer_norm_eps": 1e-05,
+  "max_position_embeddings": 2048,
+  "model_type": "phi",
+  "num_attention_heads": 32,
+  "num_hidden_layers": 32,
+  "num_key_value_heads": 32,
+  "partial_rotary_factor": 0.4,
+  "qk_layernorm": false,
+  "resid_pdrop": 0.1,
+  "rope_scaling": null,
+  "rope_theta": 10000.0,
+  "tie_word_embeddings": false,
+  "transformers_version": "4.43.2",
+  "use_cache": true,
+  "vocab_size": 51200
+}
+
+[INFO|modeling_utils.py:3634] 2025-07-25 13:04:02,459 >> loading weights file model.safetensors from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/model.safetensors.index.json
+Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards: 100%|██████████| 2/2 [00:00<00:00, 12925.44it/s]
+[INFO|configuration_utils.py:1038] 2025-07-25 13:04:02,461 >> Generate config GenerationConfig {
+  "bos_token_id": 50256,
+  "eos_token_id": 50256
+}
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.24s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.37it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.24it/s]
+[INFO|modeling_utils.py:4463] 2025-07-25 13:04:04,204 >> All model checkpoint weights were used when initializing PhiForCausalLM.
+
+[INFO|modeling_utils.py:4471] 2025-07-25 13:04:04,204 >> All the weights of PhiForCausalLM were initialized from the model checkpoint at microsoft/phi-2.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use PhiForCausalLM for predictions without further training.

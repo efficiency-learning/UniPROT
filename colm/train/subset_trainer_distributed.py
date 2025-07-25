@@ -240,7 +240,7 @@ class SubsetTrainer(Trainer):
         
     def _log(self, tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval):
         self._maybe_log_save_evaluate(tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
-        with open("/home/ganesh/CoLM/colm/train/logs/spot.log", "a") as f:
+        with open("/home/ganesh/CoLM/colm/train/logs/fairot_eff10k.log", "a") as f:
             json.dump(f"epoch: {epoch}, loss: {float(tr_loss)}\n", f)
         
 
@@ -1382,6 +1382,7 @@ class SubsetTrainer(Trainer):
             weights = torch.ones_like(idx)/len
             return tocpu(idx), tocpu(weights)
         if(self.method == "fairot_multisource"):
+            _, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
             return self.select_data_facloc(inputs, max_samples, source_list, optim=fairot.greedy_fairot)
         
 
@@ -2129,7 +2130,7 @@ class SubsetTrainerEfficient(SubsetTrainer):
                     self.control = self.callback_handler.on_step_end(
                         args, self.state, self.control)
 
-                    self._maybe_log_save_evaluate(
+                    self._log(
                         tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
                     if self.control.should_epoch_stop or self.control.should_training_stop:
@@ -2149,7 +2150,7 @@ class SubsetTrainerEfficient(SubsetTrainer):
 
             self.control = self.callback_handler.on_epoch_end(
                 args, self.state, self.control)
-            self._maybe_log_save_evaluate(
+            self._log(
                 tr_loss, grad_norm, model, trial, epoch, ignore_keys_for_eval)
 
             if self.control.should_training_stop:
