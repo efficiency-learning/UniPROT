@@ -81,6 +81,7 @@ from torch.utils.data import DataLoader, SubsetRandomSampler
 import random
 import colm.train.greats as greats
 import colm.train.fairot as fairot
+import colm.train.fairot2 as fairot2
 import json
 
 
@@ -1212,38 +1213,44 @@ class SubsetTrainer(Trainer):
             res = torch.cat(res_list, dim=0).flatten()
 
         elif self.args.data_selection_unit == 'masked_grad':
+            original_flags = {}
+            target_params = []
             self.original_grad_settings = {}
             self.named_parameters_to_optim = []
 
-            for name, param in model.named_parameters():
-                self.original_grad_settings[name] = param.requires_grad
-                if any(substring in name for substring in self.last_layers):
-                    self.named_parameters_to_optim.append((name, param))
+            for name, p in model.named_parameters():
+                original_flags[name] = p.requires_grad
+                if any(substr in name for substr in self.last_layers):
+                    target_params.append((name, p))
                 else:
-                    param.requires_grad = False
+                    p.requires_grad_(False)
 
-            assert len(self.named_parameters_to_optim) != 0, "no layer found"
+            if not target_params:
+                raise ValueError("No parameters matched self.last_layers")
 
-            model.zero_grad()
-            # Set random seed to make the dropout consistent
-            # between different inputs when collecting grad
-            # torch.manual_seed(self.args.seed)
-            self.training_step(model, inputs)
-            res_list = []
+            model.zero_grad(set_to_none=True)
+            # torch.manual_seed(self.args.seed)  # keep dropout deterministic
 
-            for _, (name, param) in enumerate(self.named_parameters_to_optim):
-                grad_update = param.grad.detach()
-                if self.args.mezo_selection == "weight_grad" and not torch.all(param.data == 0):
-                    grad_update = grad_update * param.data
-                flattened_res = grad_update.flatten()
-                res_list.append(flattened_res)
+            self.training_step(model, inputs)  # must call loss.backward() inside
 
-            res = torch.cat(res_list, dim=0).flatten()
+            flat_grads = []
+            for name, p in target_params:
+                g = p.grad
+                if g is None:
+                    continue  # or raise if this should never happen
 
-            model.zero_grad()
+                if self.args.mezo_selection == "weight_grad":
+                    g = g * p.detach()
 
+                flat_grads.append(g.detach().flatten())
+
+            res = torch.cat(flat_grads).cpu()   # shape [N]
+            self.original_grad_settings = original_flags
+            self.named_parameters_to_optim = target_params
+            
             for name, param in model.named_parameters():
                 param.requires_grad = self.original_grad_settings[name]
+                
         elif self.args.data_selection_unit == "completion_length":
             # Use output length by summing without padding tokens
             res = inputs["completion_lengths"][0]
@@ -1328,22 +1335,23 @@ class SubsetTrainer(Trainer):
 
         return masked_reps
 
-    def select_data_facloc(self, inputs, max_samples=64, source_list=None, optim=None):
+    def select_data_facloc(self, inputs, max_samples=64, source_list=None, optim=None, metric="cosine"):
         """
         Select a subset of inputs based on model representations using Facility Location.
         """
-        greedy_indices = get_orders_and_weights(
-            max_samples,
-            inputs,
-            metric=self.args.facility_similarity,
-            y=source_list,
-            per_class_start=self.args.num_per_class_start,
-            strategy=self.args.source_wise_selection,
-            optim=optim
-        )
-        # Return subset indices as a list
-        idx = greedy_indices[0]
-        weights = greedy_indices[1]
+        with torch.no_grad():
+            greedy_indices = get_orders_and_weights(
+                max_samples,
+                inputs,
+                metric=metric,
+                y=source_list,
+                per_class_start=self.args.num_per_class_start,
+                strategy=self.args.source_wise_selection,
+                optim=optim
+            )
+            # Return subset indices as a list
+            idx = greedy_indices[0]
+            weights = greedy_indices[1]
 
         return idx, weights
     
@@ -1353,7 +1361,7 @@ class SubsetTrainer(Trainer):
         """
         tocpu = lambda x: x.cpu().numpy()
         if(self.method in ["submodlib", "weightedsubmodlib"]): 
-            return self.select_data_facloc(inputs, max_samples, source_list)
+            return self.select_data_facloc(inputs, max_samples, source_list, metric=self.args.facility_similarity)
         
         if(self.method == "spot"):
             dist = utils.compute_cost_matrix(inputs, inputs, metric="cosine")
@@ -1372,18 +1380,23 @@ class SubsetTrainer(Trainer):
             idx = greats.greedy_selection(tocpu(sims_cross.mean(1)), tocpu(sims), max_samples)
             idx = torch.tensor(idx)
             len = idx.shape[0]
-            weights = torch.ones_like(idx)/len
+            weights = torch.ones_like(idx)
             return tocpu(idx), tocpu(weights)
         if(self.method == "fairot"):
-            _, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
-            idx = fairot.greedy_fairot(tocpu(sims), max_samples)
+            dist, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
+            idx = fairot2.greedy_fairot(tocpu(sims), max_samples, dist=tocpu(dist), iters=500, reg=1e-1)
             idx = torch.tensor(idx)
             len = idx.shape[0]
             weights = torch.ones_like(idx)/len
             return tocpu(idx), tocpu(weights)
         if(self.method == "fairot_multisource"):
-            _, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
-            return self.select_data_facloc(inputs, max_samples, source_list, optim=fairot.greedy_fairot)
+            lamb = lambda S,k, dist=None : fairot2.greedy_fairot(S, k , reg=1e-1, dist=dist, iters=500)
+            idx, weights = self.select_data_facloc(inputs, max_samples, source_list, 
+                                           optim=lamb, metric="cosine")
+            idx = torch.tensor(idx)
+            # len = idx.shape[0]
+            # weights = tocpu(torch.ones_like(idx)/len)
+            return tocpu(idx), weights
         
 
 

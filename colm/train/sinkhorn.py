@@ -1,6 +1,8 @@
 import numpy as np
 import ot  # POT library
 import time
+from colm.train.utils import stable_entropy
+
 
 def pot_partial_extended(S_sub: np.ndarray, k: int, mu_P: np.ndarray,
                         reg: float, epsilon: float = 1.0,
@@ -59,16 +61,18 @@ def pot_partial_extended(S_sub: np.ndarray, k: int, mu_P: np.ndarray,
 
     # Compute the entropic regularization term
     mask = gamma_non_dummy > 0
-    entropy = -np.sum(gamma_non_dummy[mask] * np.log(gamma_non_dummy[mask]))
+    entropy = stable_entropy(gamma_non_dummy)
     obj_value = obj_value + reg * entropy
     return gamma_non_dummy, obj_value
 
 
-def pot_partial_library(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg: float) -> np.ndarray:
+def pot_partial_library(S_sub: np.ndarray, k: int, reg: float, D_sub=None, iters=None) -> np.ndarray:
 
     m, n = S_sub.shape
-    # Cost matrix is negative similarity
+    if(iters is None):
+        iters = 20
     C = -S_sub
+    if(D_sub is not None): C = D_sub
     # Target marginal for partial transport
     mu_T = k * np.ones(n) / n
     mu_P = np.ones(m)
@@ -79,16 +83,21 @@ def pot_partial_library(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg: float)
     #print(f"L1 norm of mu_T: {l1_mu_T:.6f}")
     #print(f"Min of L1 norms: {min(l1_mu_P, l1_mu_T):.6f}")
     # Mass to transport (partial transport parameter)
+    
+    #TODO: What ?
+    # '''
     mass_to_transport = min(m,k)
     if(mass_to_transport > min(l1_mu_P, l1_mu_T)):
-        print("Warning: mass to transport exceeds min(|a|_1, |b|_1). This may lead to unexpected results.")
+        # print("Warning: mass to transport exceeds min(|a|_1, |b|_1). This may lead to unexpected results.")
         mass_to_transport = min(l1_mu_P, l1_mu_T)
+    mass_to_transport = None
+    # '''
     #print(f" mass to transport is {mass_to_transport} while min(|a|_1, |b|_1) is {min(l1_mu_P, l1_mu_T)}")
 
     #print("Min of marginals: ", np.min((mu_P), (mu_T)))
     # Use POT's partial optimal transport
     gamma_star = ot.partial.entropic_partial_wasserstein(
-        mu_P, mu_T, C, reg, numItermax=100, m= mass_to_transport
+        mu_P, mu_T, C, reg, numItermax=iters, m=mass_to_transport
     )
 
     #print("\n2. POT Library Partial OT:")
@@ -96,8 +105,8 @@ def pot_partial_library(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg: float)
     #print(f"Total mass transported: {np.sum(gamma_star):.6f}")
     #print(f"Row sums (should= mu_P): {np.sum(gamma_star, axis=1)}")
     #print(f"Column sums: {np.sum(gamma_star, axis=0)}")
-    
-    obj_value = np.sum(S_sub * gamma_star)- reg*np.sum(gamma_star * np.log(gamma_star + 1e-10))  # Avoid log(0)
+    ent = stable_entropy(gamma_star)
+    obj_value = np.sum(S_sub * gamma_star) + reg*ent
 
     return gamma_star, obj_value
 
@@ -137,24 +146,6 @@ def compare_partial_ot_methods(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg:
         print(f"POT library ot.partial.wasserstein: {obj_library:.6f}")
     return gamma_extended, gamma_library
 
-
-# Test parameters
-n = 20
-P = [3, 7,8,19,10]
-S = np.random.rand(n, n)
-S = (S + S.T) / 2
-np.fill_diagonal(S, 1.0)
-S_P = S[np.ix_(P, range(n))]
-mu_P_test = np.ones(len(P)) / len(P)
-mu_T_test = np.ones(n) / n
-reg_test = 0.1
-k_test = 12
-
-
-# Compare partial OT methods
-gamma_ext, gamma_lib = compare_partial_ot_methods(
-    S_P, k_test, mu_P_test, reg_test
-)
 
 
 '''

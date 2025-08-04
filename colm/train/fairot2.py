@@ -3,9 +3,62 @@ from typing import Callable, List, Set
 from colm.train.sinkhorn import pot_partial_extended, pot_partial_library
 import matplotlib.pyplot as plt
 import time
+from colm.train.utils import stable_entropy
 
+def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-1, dist=None, iters=10) -> List[int]:
+    n = S.shape[0]
+    candidates = set(range(n))
+    
+    P_approx_lib = []
+    obj_values_approx_lib = []
+    gamma_P = None
+    obj_P = 0.0
+    mu_T = k * np.ones(n) / n
 
-def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
+    sorted_indices_all = np.argsort(-S, axis=1)  # Sort indices for all rows of S
+    sorted_S_all = np.take_along_axis(S, sorted_indices_all, axis=1)  # Sort S along rows
+    for step in range(k):
+        if len(P_approx_lib) == 0:
+            gamma_P = None
+            obj_P = 0.0
+        else:
+            S_P = S[np.ix_(P_approx_lib, range(n))]
+            D_P = None
+            if(dist is not None):
+                D_P = dist[np.ix_(P_approx_lib, range(n))]
+            gamma_P, obj_P = pot_partial_library(S_P, k, reg, D_sub=D_P, iters=iters)
+            # mu_P = np.ones(len(P_approx_lib)) / len(P_approx_lib)
+            print(f"Objective val for current proto at step {step}/{k}", obj_P)
+        obj_values_approx_lib.append(obj_P)
+        if gamma_P is None:
+            col_sums = np.zeros(n)
+        else:
+            col_sums = np.sum(gamma_P, axis=0)
+        
+ 
+        #col_sums = np.sum(gamma_P, axis=0)
+        b = mu_T - col_sums
+        b = np.clip(b, 0, None)
+
+        candidates = np.array(list(set(range(n)) - set(P_approx_lib)))  
+        sorted_indices_candidates = sorted_indices_all[candidates]  # Precompute sorted indices for candidates
+        sorted_S_candidates = sorted_S_all[candidates]  # Precompute sorted similarity vectors for candidates
+        #TODO: focus code
+
+        gains = np.array([
+            exact_gain(P_approx_lib, gamma_P, v, S, sorted_S_candidates[i], 
+                       sorted_indices_candidates[i], b, k, reg, dist, iters=iters)
+            for i, v in enumerate(candidates)
+        ])
+
+        # Select the best candidate
+        best_gain_idx =  np.argmax(gains)
+        best_v = candidates[best_gain_idx]
+        P_approx_lib.append(best_v)
+    
+    return P_approx_lib
+
+def greedy_fairot_old(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
     """
     Greedy algorithm with approximate gain for fair prototype selection.
     Args:
@@ -59,17 +112,19 @@ def optimal_alpha_vectorized(sorted_S_a: np.ndarray, sorted_indices: np.ndarray,
     # Compute scaling factor for interior points
     sum_boundary = np.sum(sorted_b[p:])
     sum_exp_interior = np.sum(np.exp(sorted_S_a[:p] / reg))
-    scaling_factor = (1.0 - sum_boundary) / sum_exp_interior if sum_boundary < 1.0 else 0
+    # scaling_factor = (1.0 - sum_boundary) / sum_exp_interior if sum_boundary < 1.0 else 0
+    scaling_factor = 1
 
     # Compute alpha values
     alpha = np.zeros(n)
+    print("Scaling factor", scaling_factor)
     alpha[sorted_indices[:p]] = scaling_factor * np.exp(sorted_S_a[:p] / reg)
     alpha[sorted_indices[p:]] = sorted_b[p:]
 
     return alpha
 
 
-def optimal_alpha(S_a: np.ndarray, b: np.ndarray, reg: float, tol=1e-8, max_iter=100) -> np.ndarray:
+def optimal_alpha_old(S_a: np.ndarray, b: np.ndarray, reg: float, tol=1e-8, max_iter=100) -> np.ndarray:
     """
     Compute optimal alpha using the closed-form KKT solution.
     
@@ -157,7 +212,99 @@ def optimal_alpha(S_a: np.ndarray, b: np.ndarray, reg: float, tol=1e-8, max_iter
     return best_alpha
 
 
-def approx_gain(P: List[int], gamma_P, v: int, S: np.ndarray, S_a: np.ndarray, sorted_indices: np.ndarray ,b:np.ndarray, k: int, reg: float) -> float:
+
+def optimal_alpha(S_a: np.ndarray, b: np.ndarray, reg: float, tol=1e-8, max_iter=100) -> np.ndarray:
+    """
+    Compute optimal alpha using the closed-form KKT solution.
+    
+    Based on the coordinate-wise analysis:
+    - Interior points (0 < α_i < b_i): α_i = scaling_factor * exp(S_a[i]/λ)
+    - Boundary points (α_i = b_i): α_i = b_i
+    
+    Where scaling_factor = (1 - sum(b_i for boundary points)) / sum(exp(S_a[i]/λ) for interior points)
+    
+    Algorithm: Sort S_a points and iteratively find optimal partition between interior/boundary
+    """
+    n = S_a.shape[0]
+    beta_low, beta_high = np.min(S_a) - tol, np.max(S_a) + tol
+    
+    # Precompute exp(S_a[i]/λ) for efficiency
+    exp_S_scaled = np.exp(S_a / reg)
+    
+    # Sort indices by S_a values (descending order - highest similarity first)
+    sorted_indices = np.argsort(-S_a)
+    
+    best_alpha = None
+    best_objective = -np.inf
+    
+    # Try all possible partitions: first p points are interior, rest are boundary
+    for p in range(n + 1):  # p = 0, 1, ..., n
+        if p == 0:
+            # All points are boundary
+            if np.sum(b) > 0:
+                alpha = b / np.sum(b)
+            else:
+                alpha = np.zeros(n)
+        elif p == n:
+            # All points are interior (unconstrained softmax)
+            alpha = exp_S_scaled / np.sum(exp_S_scaled)
+            # Check if this violates any boundary constraint
+            if np.any(alpha > b + tol):
+                continue  # Invalid partition
+        else:
+            # Mixed case: first p points (by sorted order) are interior
+            interior_mask = np.zeros(n, dtype=bool)
+            interior_mask[sorted_indices[:p]] = True
+            boundary_mask = ~interior_mask
+            
+            # Check if this partition makes sense:
+            # Interior points should have potential to be < b_i
+            # (otherwise they should be boundary)
+            sum_boundary = np.sum(b[boundary_mask])
+            sum_exp_interior = np.sum(exp_S_scaled[interior_mask])
+            
+            if sum_boundary >= 1.0:
+                # Boundary points already sum to ≥ 1, set interior to 0
+                alpha = np.zeros(n)
+                alpha[boundary_mask] = b[boundary_mask] / sum_boundary
+            else:
+                # Normal case: compute scaling factor
+                scaling_factor = (1.0 - sum_boundary) / sum_exp_interior
+                alpha = np.zeros(n)
+                alpha[boundary_mask] = b[boundary_mask]
+                alpha[interior_mask] = scaling_factor * exp_S_scaled[interior_mask]
+                
+                # Verify that interior points are actually < b_i
+                if np.any(alpha[interior_mask] > b[interior_mask] + tol):
+                    continue  # Invalid partition
+        
+        # Check if this alpha satisfies all constraints
+        if (abs(np.sum(alpha) - 1.0) < tol and 
+            np.all(alpha >= -tol) and 
+            np.all(alpha <= b + tol)):
+            
+            # Compute objective value for this partition
+            objective = np.sum(S_a * alpha) + reg * np.sum(-alpha * np.log(alpha + 1e-12))
+            
+            if objective > best_objective:
+                best_objective = objective
+                best_alpha = alpha.copy()
+    
+    if best_alpha is None:
+        # Fallback: normalize b if no valid partition found
+        best_alpha = b / np.sum(b) if np.sum(b) > 0 else np.ones(n) / n
+    
+    # Final verification
+    assert np.abs(np.sum(best_alpha) - 1.0) < tol, f"Sum constraint violated: {np.sum(best_alpha)}"
+    assert np.all(best_alpha >= -tol), f"Non-negativity violated: min = {np.min(best_alpha)}"
+    assert np.all(best_alpha <= b + tol), f"Upper bound violated: max excess = {np.max(best_alpha - b)}"
+    
+    return best_alpha
+
+
+
+def approx_gain(P: List[int], gamma_P, v: int, S: np.ndarray, S_a: np.ndarray, 
+                sorted_indices: np.ndarray ,b:np.ndarray, k: int, reg: float, D=None) -> float:
     """
     Approximate gain function for greedy selection using feasible extension.
     Args:
@@ -174,6 +321,9 @@ def approx_gain(P: List[int], gamma_P, v: int, S: np.ndarray, S_a: np.ndarray, s
     if gamma_P is None or len(P) == 0:
         # If P is empty, just solve for {v}
         S_P_new = S[np.ix_([v], range(n))]
+        if(D is not None):
+            D_P_new = D[np.ix_([v], range(n))]
+            
         mu_P_new = np.ones(1)
         gamma_P_new, obj_new = pot_partial_extended(S_P_new, k, mu_P_new, reg)
         obj_old = 0.0
@@ -181,146 +331,52 @@ def approx_gain(P: List[int], gamma_P, v: int, S: np.ndarray, S_a: np.ndarray, s
     else:
         m = len(P)
         S_P = S[np.ix_(P, range(n))]
+        if(D is not None):
+            D_P = D[np.ix_(P, range(n))]
  # ensure non-negative upper bounds
         # Use closed-form for optimal alpha
         #alpha = np.zeros(n)
         alpha = optimal_alpha_vectorized(S_a.flatten(), sorted_indices, b, reg)
         gamma_tilde = np.vstack([gamma_P, alpha.reshape(1, n)])
         obj = np.sum(S_P * gamma_P) + np.sum(S_a * alpha)
-        mask = gamma_tilde > 0
-        entropy = -np.sum(gamma_tilde[mask] * np.log(gamma_tilde[mask]))
+        entropy = stable_entropy(gamma_tilde)
         obj = obj + reg * entropy
-        mask_old = gamma_P > 0
-        entropy_old = -np.sum(gamma_P[mask_old] * np.log(gamma_P[mask_old]))
+        entropy_old = stable_entropy(gamma_P)
         obj_old = np.sum(S_P * gamma_P) + reg * entropy_old
         return obj - obj_old
-
-def test_optimal_alpha_constraints():
-    np.random.seed(42)
-    n = 10
-    k = 5
-    reg = 0.1
-    S = np.random.rand(n, n)
-    S = (S + S.T) / 2
-    np.fill_diagonal(S, 1.0)
-    # Select a random set P of size m
-    m = 3
-    P = np.random.choice(n, m, replace=False).tolist()
-    S_P = S[np.ix_(P, range(n))]
-    mu_P = np.ones(m) / m
-    gamma_P_star, _ = pot_partial_extended(S_P, k, mu_P, reg)
-    # Pick a candidate v not in P
-    v = np.random.choice(list(set(range(n)) - set(P)))
-    S_a = S[v, :]
-    mu_T = k * np.ones(n) / n
-    col_sums = np.sum(gamma_P_star, axis=0)
-    b = mu_T - col_sums
-    b = np.clip(b, 0, None)
-    alpha = optimal_alpha(S_a, sorted_indices,      b, reg)
-    print("alpha:", alpha)
-    print("sum(alpha):", np.sum(alpha))
-    print("min(alpha):", np.min(alpha))
-    print("max(alpha):", np.max(alpha))
-    print("b:", b)
-    # Check constraints with visual signals
-    all_pass = True
-    for i in range(n):
-        interior = (alpha[i] < b[i] - 1e-8)
-        boundary = (abs(alpha[i] - b[i]) < 1e-6)
-        nonneg = (alpha[i] >= -1e-8)
-        kkt_interior = False
-        kkt_boundary = False
-        if interior and nonneg:
-            # KKT: alpha_i = exp((S_a[i] - beta)/reg - 1) for some beta
-            kkt_interior = True
-        if boundary and nonneg:
-            # KKT: beta <= S_a[i] - reg * (1 + log(b[i]))
-            kkt_boundary = True
-        if interior and nonneg and kkt_interior:
-            print(f"\u2705 alpha[{i}] interior OK: {alpha[i]:.4f} < b[{i}]={b[i]:.4f}")
-        elif boundary and nonneg and kkt_boundary:
-            print(f"\u2705 alpha[{i}] boundary OK: {alpha[i]:.4f} == b[{i}]={b[i]:.4f}")
-        elif not nonneg:
-            print(f"\u274C alpha[{i}] NEGATIVE: {alpha[i]:.4f} < b[{i}]={b[i]:.4f}")
-            all_pass = False
-        else:
-            print(f"\u274C alpha[{i}] violates KKT: {alpha[i]:.4f} vs b[{i}]={b[i]:.4f}")
-            all_pass = False
-    if abs(np.sum(alpha) - 1) < 1e-6:
-        print("\u2705 sum(alpha) == 1")
-    else:
-        print(f"\u274C sum(alpha) = {np.sum(alpha):.6f} (should be 1)")
-        all_pass = False
-    if all_pass:
-        print("\u2705 All coordinate-wise KKT constraints satisfied.")
-    else:
-        print("\u274C Some constraints failed.")
-
-def load_mnist_subset(n_samples=100, subset_classes=None):
-    """
-    Load a subset of MNIST data.
-    Args:
-        n_samples: Number of samples to load
-        subset_classes: List of classes to include (e.g., [0, 1, 2]) or None for all
-    Returns:
-        X: Data matrix (n_samples, 784)
-        y: Labels (n_samples,)
-    """
-    try:
-        from sklearn.datasets import fetch_openml
-        # Load MNIST dataset
-        mnist = fetch_openml('mnist_784', version=1, as_frame=False, parser='auto')
-        X, y = mnist.data, mnist.target.astype(int)
-        
-        # Filter by classes if specified
-        if subset_classes is not None:
-            mask = np.isin(y, subset_classes)
-            X, y = X[mask], y[mask]
-        
-        # Sample random subset
-        if len(X) > n_samples:
-            indices = np.random.choice(len(X), n_samples, replace=False)
-            X, y = X[indices], y[indices]
-        
-        # Normalize to [0, 1]
-        X = X / 255.0
-        
-        return X, y
-    except ImportError:
-        print("scikit-learn not available, using random data instead")
-        return np.random.rand(n_samples, 784), np.random.randint(0, 10, n_samples)
-
-def compute_similarity_matrix(X, method='gaussian', sigma=1.0):
-    """
-    Compute similarity matrix from data.
-    Args:
-        X: Data matrix (n_samples, n_features)
-        method: 'gaussian', 'cosine', or 'linear'
-        sigma: Bandwidth for Gaussian kernel
-    Returns:
-        S: Similarity matrix (n_samples, n_samples)
-    """
-    n = X.shape[0]
     
-    if method == 'gaussian':
-        # Gaussian kernel based on Euclidean distance
-        dists = np.linalg.norm(X[:, None, :] - X[None, :, :], axis=2)
-        S = np.exp(-dists**2 / (2 * sigma**2))
-    elif method == 'cosine':
-        # Cosine similarity
-        X_norm = X / (np.linalg.norm(X, axis=1, keepdims=True) + 1e-8)
-        S = X_norm @ X_norm.T
-        S = np.clip(S, 0, 1)  # Ensure non-negative
-    elif method == 'linear':
-        # Linear kernel (dot product)
-        S = X @ X.T
-        S = S / np.max(S)  # Normalize to [0, 1]
-    else:
-        raise ValueError(f"Unknown similarity method: {method}")
+
+
+def exact_gain(P: List[int], gamma_P, v: int, S: np.ndarray, S_a: np.ndarray, 
+               sorted_indices: np.ndarray ,b:np.ndarray, k: int, reg: float, D=None, iters=None) -> float:
+    """
+    Args:
+        P: Current set of prototypes
+        gamma_P: Current OT plan (can be None if P is empty)
+        v: Candidate index to add
+        S: Similarity matrix
+        k: Cardinality constraint
+        reg: Entropic regularization parameter
+    Returns:
+        Exact gain of adding v to P
+    """
     
-    # Ensure diagonal is 1
-    np.fill_diagonal(S, 1.0)
-    return S
+    n = S.shape[0]
+    if gamma_P is None or len(P) == 0:
+        # If P is empty, just solve for {v}
+        S_P_new, D_P_new = S[v:v+1], D[v:v+1]
+        
+        # _, obj_new = pot_partial_extended(S_P_new, k, mu_P_new, reg)
+        _, obj_new = pot_partial_library(S_P_new, k, reg, D_sub=D_P_new, iters=iters)
+        obj_old =  0.0
+        return obj_new - obj_old
+    else:
+        S_P_old, D_P_old = S[np.ix_(P, range(n))], D[np.ix_(P, range(n))]
+        S_P_new, D_P_new = S[np.ix_([*P, v], range(n))], D[np.ix_([*P, v], range(n))]
+        _, obj_new = pot_partial_library(S_P_new, k, reg, D_sub=D_P_new, iters=iters)
+        _, obj_old =  pot_partial_library(S_P_old, k, reg, D_sub=D_P_old, iters=iters)
+        return obj_new - obj_old
+    
 
 
 def main_synthetic_new():
@@ -366,9 +422,9 @@ def main_synthetic_new():
                 obj_P = 0.0
             else:
                 S_P = S[np.ix_(P_approx_lib, range(n))]
-                mu_P = np.ones(len(P_approx_lib)) / len(P_approx_lib)
+                # mu_P = np.ones(len(P_approx_lib)) / len(P_approx_lib)
                 print("POT library called \n")
-                gamma_P, obj_P = pot_partial_library(S_P, k, mu_P, reg)
+                gamma_P, obj_P = pot_partial_library(S_P, k, reg)
                 print(f"Objective val for current proto at step {step}", obj_P)
             obj_values_approx_lib.append(obj_P)
             best_gain = -np.inf

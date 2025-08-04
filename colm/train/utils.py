@@ -209,6 +209,11 @@ def get_rank(tensor):
     return rank_tensor
 
 
+def stable_entropy(gamma: np.ndarray) -> float:
+    mask = gamma > 0
+    # return -np.sum(gamma[mask] * np.log(np.maximum(gamma[mask], 1e-12)))
+    return -np.sum(gamma * np.log(np.maximum(gamma, 1e-12)))
+
 def compute_cost_matrix(X_source: torch.Tensor, X_target: torch.Tensor, metric: str = "euclidean", return_sims=False) -> torch.Tensor:
     """
     Computes cost matrix between two sets of vectors.
@@ -221,22 +226,37 @@ def compute_cost_matrix(X_source: torch.Tensor, X_target: torch.Tensor, metric: 
     Returns:
         torch.Tensor of shape (n, m)
     """
-    if metric == "euclidean":
-        if(return_sims): return torch.cdist(X_source, X_target, p=2), -torch.cdist(X_source, X_target, p=2)
-        return torch.cdist(X_source, X_target, p=2)
-
+    X_source = torch.tensor(X_source)
+    X_target = torch.tensor(X_target)
+    if metric == "l2":
+        D =  torch.cdist(X_source, X_target, p=2)
+        m = torch.max(D)
+        S = m - D
+    elif metric == "l1":
+        D =  torch.cdist(X_source, X_target, p=1)
+        m = torch.max(D)
+        S = m - D
+        
     elif metric == "dot":
         # Negative dot product as cost (maximize dot = minimize negative dot)
-        if(return_sims): return - X_source @ X_target.T, X_source @ X_target.T
-        return - X_source @ X_target.T
+        D, S = - X_source @ X_target.T, X_source @ X_target.T
+        
 
     elif metric == "cosine":
         # Normalize
         X1 = F.normalize(X_source, dim=1)
         X2 = F.normalize(X_target, dim=1)
         cosine_sim = X1 @ X2.T
-        if(return_sims): return 1-cosine_sim, cosine_sim
-        return 1 - cosine_sim  # cost = 1 - similarity
-
+        D, S = 1-cosine_sim, cosine_sim
     else:
         raise ValueError(f"Unsupported metric: {metric}")
+    
+    if torch.isnan(S).sum() > 0:
+        print("Handle NaN in similarity")
+        S = torch.nan_to_num(S, nan=-0.95)
+    if torch.isnan(D).sum() > 0:
+        print("Handle NaN in distances")
+        D = torch.nan_to_num(D, nan=-0.95)
+    if(return_sims): return D, S
+    return D
+    
