@@ -14,10 +14,10 @@ import torch
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'baselines'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'MMDcritic'))
 from baselines.MMDcritic.mmd_critic import Dataset, select_prototypes
-from baselines.spotgreedy import SPOT_GreedySubsetSelection
-from proto_selection_evals import data
-from fairOT import FairOptimalTransport
-from proto_selection_evals import evaluation
+from SPOTgreedy import SPOT_GreedySubsetSelection
+from image.proto_selection_evals import data
+from FairOT.FairOptimalTransport import FairOptimalTransport
+from baselines import evaluation
 
 SEED = 42
 np.random.seed(SEED)
@@ -94,10 +94,12 @@ def select_prototypes_fair_ot(X, y, sims, k_per_class=10, method='approx', regul
     # Select prototypes using Fair OT
     sims = torch.from_numpy(sims).to("cuda")
     selected_indices, objectives = fair_ot.prototype_selection(sims, total_prototypes, method=method)
-    selected_indices = selected_indices.cpu().numpy()
     
-    # Convert to numpy array
-    selected_indices = np.array(selected_indices)
+    # Handle different return types
+    if isinstance(selected_indices, torch.Tensor):
+        selected_indices = selected_indices.cpu().numpy()
+    elif isinstance(selected_indices, list):
+        selected_indices = np.array(selected_indices)
     
     prototypes_X = X[selected_indices]
     prototypes_y = y[selected_indices]
@@ -178,7 +180,22 @@ def run_split_dataset_experiments(dataset_name, k_proto=10, skew_percent_list=[1
         print(f"Failed to load {dataset_name} dataset")
         return None
     
-    (source_X, source_y), (target_pool_X, target_pool_y) = dataset_result
+    # Check if dataset_result has the expected format
+    try:
+        (source_X, source_y), (target_pool_X, target_pool_y) = dataset_result
+    except (TypeError, ValueError) as e:
+        print(f"Error unpacking {dataset_name} dataset: {e}")
+        return None
+    
+    # Convert to numpy arrays if they are pandas Series/DataFrames
+    if hasattr(source_X, 'values'):
+        source_X = source_X.values
+    if hasattr(source_y, 'values'):
+        source_y = source_y.values
+    if hasattr(target_pool_X, 'values'):
+        target_pool_X = target_pool_X.values
+    if hasattr(target_pool_y, 'values'):
+        target_pool_y = target_pool_y.values
     
     # Normalize the data
     scaler = StandardScaler()
@@ -271,6 +288,12 @@ def generate_target_set_from_pool(pool_X, pool_y, skew_percent, total_size=2000)
     Returns:
         target_X, target_y: Generated target set
     """
+    # Convert to numpy arrays if they are pandas Series/DataFrames
+    if hasattr(pool_X, 'values'):
+        pool_X = pool_X.values
+    if hasattr(pool_y, 'values'):
+        pool_y = pool_y.values
+    
     classes = np.unique(pool_y)
     skew_class = np.random.choice(classes)
     
@@ -332,18 +355,197 @@ def generate_target_set_from_pool(pool_X, pool_y, skew_percent, total_size=2000)
     return pool_X[target_indices], pool_y[target_indices]
 
 
+def run_mnist_experiments(k_proto=10, skew_percent_list=[10, 30, 50, 70, 100], runs=5, methods=['spotgreedy', 'mmd_critic', 'uniform']):
+    """
+    Run MNIST experiments following the paper's protocol.
+    
+    Args:
+        k_proto: Number of prototypes per class
+        skew_percent_list: List of skew percentages to test
+        runs: Number of experimental runs
+        methods: List of prototype selection methods to compare
+    
+    Returns:
+        results_summary: Dictionary with results for each method
+    """
+    print(f"Loading MNIST dataset with paper-specific protocol...")
+    dataset_result = data.load_dataset('mnist')
+    
+    if dataset_result is None:
+        print(f"Failed to load MNIST dataset")
+        return None
+    
+    # For MNIST, we expect the full dataset
+    if len(dataset_result) == 2:
+        # Standard split dataset format
+        (source_X, source_y), (target_pool_X, target_pool_y) = dataset_result
+    else:
+        # Single dataset format - split it ourselves
+        X, y = dataset_result
+        # Use standard MNIST train/test split proportions
+        source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+            X, y, test_size=0.3, random_state=SEED, stratify=y
+        )
+    
+    # Convert to numpy arrays if they are pandas Series/DataFrames
+    if hasattr(source_X, 'values'):
+        source_X = source_X.values
+    if hasattr(source_y, 'values'):
+        source_y = source_y.values
+    if hasattr(target_pool_X, 'values'):
+        target_pool_X = target_pool_X.values
+    if hasattr(target_pool_y, 'values'):
+        target_pool_y = target_pool_y.values
+    
+    # Normalize the data
+    scaler = StandardScaler()
+    source_X = scaler.fit_transform(source_X.astype(np.float32))
+    target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
+    
+    print(f"MNIST dataset sizes - Source: {len(source_X)}, Target pool: {len(target_pool_X)}")
+    
+    results_summary = {}
+    
+    for method in methods:
+        print(f"\n{'='*70}")
+        print(f"MNIST Experiments with {method.upper()} prototype selection")
+        print(f"{'='*70}")
+        
+        method_results = {}
+        
+        for skew_percent in skew_percent_list:
+            print(f"\n--- Testing with {skew_percent}% skew ---")
+            
+            skew_results = []
+            
+            for run in range(runs):
+                print(f"Run {run+1}/{runs} for {skew_percent}% skew")
+                
+                # Generate target set with specified skew from target pool
+                target_X, target_y = generate_mnist_target_set(target_pool_X, target_pool_y, 
+                                                             skew_percent, total_size=2000)
+                
+                print("Selecting prototypes from source set...")
+                prototypes_X, prototypes_y = prototype_selection(source_X, source_y, 
+                                                                target_X, target_y, 
+                                                                k_per_class=k_proto, method=method)
+                
+                # Evaluate 1-NN accuracy
+                accuracy = evaluate_1nn(prototypes_X, prototypes_y, target_X, target_y)
+                skew_results.append(accuracy)
+                
+                print(f"  Accuracy: {accuracy:.4f}")
+            
+            if skew_results:
+                mean_acc = np.mean(skew_results)
+                std_acc = np.std(skew_results)
+                print(f"\n{skew_percent}% skew results: {mean_acc:.4f} ± {std_acc:.4f}")
+                method_results[f'skew_{skew_percent}'] = {'mean': mean_acc, 'std': std_acc}
+        
+        results_summary[method] = method_results
+    
+    # Print comparison summary
+    print(f"\n{'='*70}")
+    print(f"MNIST COMPARISON SUMMARY")
+    print(f"{'='*70}")
+    
+    for skew_percent in skew_percent_list:
+        print(f"\n{skew_percent}% SKEW:")
+        for method in methods:
+            if method in results_summary and f'skew_{skew_percent}' in results_summary[method]:
+                result = results_summary[method][f'skew_{skew_percent}']
+                print(f"  {method:12}: {result['mean']:.4f} ± {result['std']:.4f}")
+    
+    return results_summary
+
+def generate_mnist_target_set(pool_X, pool_y, skew_percent, total_size=2000):
+    """
+    Generate MNIST target set following the paper's skew protocol.
+    
+    Args:
+        pool_X: Pool of target features  
+        pool_y: Pool of target labels
+        skew_percent: Percentage of target set from the skewed class
+        total_size: Total size of target set
+    
+    Returns:
+        target_X, target_y: Generated target set
+    """
+    # Convert to numpy arrays if they are pandas Series/DataFrames
+    if hasattr(pool_X, 'values'):
+        pool_X = pool_X.values
+    if hasattr(pool_y, 'values'):
+        pool_y = pool_y.values
+    
+    classes = np.unique(pool_y)  # Should be [0, 1, 2, ..., 9] for MNIST
+    
+    # For MNIST, typically skew towards digit '1' or randomly select
+    skew_class = 1  # Can be made configurable
+    
+    # Count instances per class in the pool
+    class_counts = {}
+    for cls in classes:
+        class_counts[cls] = np.sum(pool_y == cls)
+    
+    min_class_count = min(class_counts.values())
+    
+    if skew_percent == 10:
+        # For 10% skew, create nearly balanced set
+        samples_per_class = total_size // len(classes)
+        samples_skew_class = int(samples_per_class * 1.1)  # Slightly more for skewed class
+        samples_per_other_class = (total_size - samples_skew_class) // (len(classes) - 1)
+    else:
+        # For higher skew percentages
+        skew_class_count = class_counts[skew_class]
+        max_skew_samples = min(skew_class_count, int(total_size * skew_percent / 100))
+        
+        samples_skew_class = max_skew_samples
+        remaining_samples = total_size - samples_skew_class
+        samples_per_other_class = remaining_samples // (len(classes) - 1)
+    
+    target_indices = []
+    
+    # Add samples from skewed class
+    skew_idx = np.where(pool_y == skew_class)[0]
+    if len(skew_idx) > 0:
+        selected_skew = np.random.choice(skew_idx, size=min(samples_skew_class, len(skew_idx)), replace=False)
+        target_indices.extend(selected_skew)
+    
+    # Add samples from other classes
+    for cls in classes:
+        if cls == skew_class:
+            continue
+        cls_idx = np.where(pool_y == cls)[0]
+        if len(cls_idx) > 0:
+            selected_cls = np.random.choice(cls_idx, size=min(samples_per_other_class, len(cls_idx)), replace=False)
+            target_indices.extend(selected_cls)
+    
+    target_indices = np.array(target_indices)
+    np.random.shuffle(target_indices)
+    
+    if len(target_indices) == 0:
+        raise ValueError("No valid target indices generated for MNIST")
+    
+    actual_skew_percentage = np.sum(pool_y[target_indices] == skew_class) / len(target_indices) * 100
+    print(f"Generated MNIST target set: {len(target_indices)} samples, actual skew: {actual_skew_percentage:.1f}% towards digit {skew_class}")
+    
+    return pool_X[target_indices], pool_y[target_indices]
+
 def run_experiments(dataset_name, total_target=1000, k_proto=10, skew_percent_list=[50, 70, 90], runs=10, methods=['spotgreedy', 'mmd_critic', 'uniform']):
+    # MNIST with paper-specific protocol
+    if dataset_name == 'mnist':
+        return run_mnist_experiments(k_proto=k_proto, skew_percent_list=skew_percent_list, runs=runs, methods=methods)
+    
     # Datasets with pre-split source/target pools
-    # if dataset_name in ['Letter', 'USPS', 'tinyimagenet', 'Flickr']:
-    if dataset_name in ['tinyimagenet', 'Flickr']:
-        return run_split_dataset_experiments(dataset_name, k_proto=k_proto, runs=runs, methods=methods)
+    if dataset_name in ['Letter', 'USPS', 'tinyimagenet', 'Flickr']:
+        return run_split_dataset_experiments(dataset_name, k_proto=k_proto, skew_percent_list=skew_percent_list, runs=runs, methods=methods)
     
     raise NotImplementedError
 
 if __name__ == "__main__":
     # Test with small datasets first and fewer runs for faster testing
     #methods_to_test = ['spotgreedy', 'mmd_critic', 'fairot_approx', 'fairot_exact', 'uniform']
-    methods_to_test = ['fairot_exact']  # Reduced for faster testing
+    methods_to_test = ['fairot_approx']  # Reduced for faster testing
     print("Starting comprehensive protorSPOtype selection evaluation...")
     print(f"Methods to test: {', '.join(methods_to_test)}")
     print("=" * 80)
@@ -354,7 +556,7 @@ if __name__ == "__main__":
     
     # Datasets with specific experimental protocols
     # protocol_datasets = ['Letter', 'USPS', 'tinyimagenet']
-    protocol_datasets = ['tinyimagenet']
+    protocol_datasets = ['Flickr']
     for dataset in protocol_datasets:
         print(f"\n{'*'*80}")
         print(f"DATASET: {dataset} (Paper-specific Protocol)")
@@ -367,19 +569,6 @@ if __name__ == "__main__":
             k_proto=5  # Reduced for faster computation
         )
         all_results[dataset] = results
-    
-    # Optional: Test Flickr if available
-    print(f"\n{'*'*80}")
-    print(f"DATASET: Flickr (Optional - if file available)")
-    print(f"{'*'*80}")
-    
-    flickr_results = run_experiments(
-        dataset_name='Flickr',
-        runs=1,
-        methods=methods_to_test,
-        k_proto=5
-    )
-    all_results['Flickr'] = flickr_results
     
     print(f"\n{'*'*80}")
     print("FINAL COMPREHENSIVE SUMMARY")
