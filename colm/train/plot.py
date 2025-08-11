@@ -3,11 +3,68 @@ import os
 import matplotlib.pyplot as plt
 
 # List of log file paths
-log_files = [
-    "/home/ganesh/CoLM/colm/train/logs/spot_10k.log",
-    "/home/ganesh/CoLM/colm/train/logs/fairot_10k.log",
-    "/home/ganesh/CoLM/colm/train/logs/fairotmmulti_10k.log"
+log_files2 = [
+    # "/home/ganesh/CoLM/colm/train/logs/spot_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairot_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairotunw_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairotmultifast_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairotexactcosinefast_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/colm_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairotunwfast_10k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/fairotmmulti_10k.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug2_colm1k.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug2_greats_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug2_spot_cosine.log",
+    # "/home/ganesh/CoLM/colm/train/logs/aug2_colm1k.log",
+    # "/home/ganesh/CoLM/colm/train/logs/aug2_fairotmulti1k.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug2_fairotmulti1k_cosine.log",
+    # "/home/ganesh/CoLM/colm/train/logs/aug2_fairot1k_cosine.log",
+    
 ]
+
+# math eff
+log_files123 = [
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmeff_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultieff_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatseff_cosine.log",
+]
+
+# math normal, mezo
+log_files = [
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmnorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_mezo_cosine.log",
+]
+
+# math normal, grad
+log_files23 = [
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmnorm_grad_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm_grad_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairot_grad_repNorm_cosine.log",
+    # "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmnorm_grad_wt_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm_unw_grad_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_grad_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_grad_repNone_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm_grad_repNorm_sgd_cosine.log",
+]
+
+
+
+log_files = [
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm10k_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmnorm10k_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm10k_grad_repNorm_cosine.log",
+]
+
+
+log_files = [
+    "/home/ganesh/CoLM/colm/train/logs/aug3_greatsnorm_b64_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_colmnorm_b64_grad_repNorm_cosine.log",
+    "/home/ganesh/CoLM/colm/train/logs/aug3_fairotmultinorm_b64_grad_repNorm_cosine.log",
+]
+
 
 
 # Output image path

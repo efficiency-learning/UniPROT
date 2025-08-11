@@ -2,7 +2,7 @@ import numpy as np
 from typing import Callable, List, Set
 from colm.train.sinkhorn import pot_partial_extended
 import matplotlib.pyplot as plt
-
+from colm.train.utils import stable_entropy
 def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
 
     n = S.shape[0]
@@ -14,6 +14,7 @@ def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
         if len(P) == 0:
             gamma_P = None
         else:
+            print("P", P)
             S_P = S[np.ix_(P, range(n))]
             mu_P = np.ones(len(P)) / len(P)
             gamma_P, _ = pot_partial_extended(S_P, k, mu_P, reg)
@@ -100,6 +101,7 @@ def optimal_alpha(S_a: np.ndarray, b: np.ndarray, reg: float, tol=1e-8, max_iter
             np.all(alpha <= b + tol)):
             
             # Compute objective value for this partition
+            # stable_entropy(alpha)
             objective = np.sum(S_a * alpha) + reg * np.sum(-alpha * np.log(alpha + 1e-12))
             
             if objective > best_objective:
@@ -168,11 +170,9 @@ def approx_gain(P: List[int], gamma_P, v: int, S: np.ndarray, k: int, reg: float
         alpha = optimal_alpha(S_a.flatten(), b, reg)
         gamma_tilde = np.vstack([gamma_P, alpha.reshape(1, n)])
         obj = np.sum(S_P * gamma_P) + np.sum(S_a * alpha)
-        mask = gamma_tilde > 0
-        entropy = -np.sum(gamma_tilde[mask] * np.log(gamma_tilde[mask]))
+        entropy = stable_entropy(gamma_tilde)
         obj = obj + reg * entropy
-        mask_old = gamma_P > 0
-        entropy_old = -np.sum(gamma_P[mask_old] * np.log(gamma_P[mask_old]))
+        entropy_old = stable_entropy(gamma_P)
         obj_old = np.sum(S_P * gamma_P) + reg * entropy_old
         return obj - obj_old
 

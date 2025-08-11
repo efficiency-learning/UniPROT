@@ -15,13 +15,13 @@ PERCENTAGE=1 # percentage of the full data to train, you can specify the trainin
 for DATA_SEED in 0
 do
     # Training
-    GAS=32 # gradient accumulation steps
+    GAS=64 # gradient accumulation steps
     DEVICE_BS=1  # batch size per device
     RANK=128
     ALPHA=512
     SAVE_STRATEGY=steps # epoch, steps
     SAVE_STEPS=256
-    MAX_STEPS=10240 # total number of gradient updates
+    MAX_STEPS=2048 # total number of gradient updates
     MAX_LENGTH=512
     DROPOUT=True
     # Selection
@@ -39,7 +39,7 @@ do
     MEZO_TOPK=largest # random, largest, smallest, sampling
     MEZO_EPS=1e-3
     MEZO_OPTIM=adam  # adam, sgd
-    MEZO_TRANSFORM=none  # none, self_normalize, normalize, clip_full, clip_last
+    MEZO_TRANSFORM=self_normalize  # none, self_normalize, normalize, clip_full, clip_last
     if [ "$SELECTION_METHOD" = "none" ]; then
         JOB_NAME=${MODEL_NAME}-math-lora-gas${GAS}-bs${DEVICE_BS}-${MAX_STEPS}steps-seed${DATA_SEED}
     else

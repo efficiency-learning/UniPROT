@@ -5,7 +5,7 @@ from submodlib import FacilityLocationFunction
 import numpy as np
 import torch
 from torchmetrics.functional import pairwise_cosine_similarity
-
+import colm.train.utils as utils
 from colm.train.utils import convert_to_ordered_range, increase_array_to_threshold, decrease_array_to_threshold, increase_array_to_threshold_v2
 
 
@@ -99,13 +99,15 @@ def get_orders_and_weights(B, X, metric, y=None, per_class_start="floor", strate
             orders_all = np.append(orders_all, class_indices)
             weights_all = np.append(weights_all, np.ones_like(class_indices))
         else:
-            S, _ = similarity(X[class_indices], metric=metric)
+            D, S = utils.compute_cost_matrix(X[class_indices], X[class_indices], metric=metric, return_sims=True)
+            S = S.cpu().to(torch.float32).numpy()
+            D = D.cpu().to(torch.float32).numpy()
             if(optim is None):
                 flf = FacilityLocationFunction(n=len(class_indices), sijs=S, separate_rep=False, mode="dense", metric=metric)
                 greedy_indices = flf.maximize(budget=num_per_class[c], optimizer="LazyGreedy", stopIfZeroGain=False, stopIfNegativeGain=False, show_progress=False)
                 orders = np.array([x[0] for x in greedy_indices], dtype=np.int32)
             else:
-                greedy_indices = optim(S, num_per_class[c])
+                greedy_indices = optim(S, num_per_class[c], dist=D)
                 orders = np.array(greedy_indices)
             print("orders", num_per_class[c], orders)
             weights = np.zeros(num_per_class[c], dtype=np.float32)
