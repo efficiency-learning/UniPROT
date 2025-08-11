@@ -1,755 +1,0 @@
-Writing output to phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0
-Set LoRA for layers q_proj k_proj v_proj fc1 fc2 of microsoft/phi-2
-Set fp16 = True and bf16 = False and torch_dtype = none for microsoft/phi-2
-/home/ganesh/miniconda3/envs/colm/lib/python3.10/site-packages/transformers/utils/hub.py:127: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
-  warnings.warn(
-2025-07-25 13:46:23.137444: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-2025-07-25 13:46:23.151545: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-E0000 00:00:1753431383.168373 4028981 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-E0000 00:00:1753431383.173645 4028981 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-W0000 00:00:1753431383.186544 4028981 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1753431383.186559 4028981 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1753431383.186560 4028981 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-W0000 00:00:1753431383.186561 4028981 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
-2025-07-25 13:46:23.190669: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
-To enable the following instructions: AVX2 AVX512F AVX512_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-(Relative) Frobenius norm difference (Extended Vanilla OT vs Partial OT): 0.645715
-(Relative) Diff between extended and partial ot -0.5530130889156539
-POT library ot.partial.wasserstein: 5.221697
-07/25/2025 13:46:27 - WARNING - __main__ - Process rank: 0, device: cuda:0, n_gpu: 1distributed training: True, 16-bits training: True
-07/25/2025 13:46:27 - INFO - __main__ - Training parameters TrainingArguments(
-_n_gpu=1,
-accelerator_config={'split_batches': False, 'dispatch_batches': None, 'even_batches': True, 'use_seedable_sampler': True, 'non_blocking': False, 'gradient_accumulation_kwargs': None, 'use_configured_state': False},
-adafactor=False,
-adam_beta1=0.9,
-adam_beta2=0.999,
-adam_epsilon=1e-08,
-analysis_dataset=bbh,
-analysis_mode=True,
-auto_find_batch_size=False,
-batch_eval_metrics=False,
-bf16=False,
-bf16_full_eval=False,
-block_size=128,
-data_seed=None,
-data_selection_method=fairot_multisource,
-data_selection_unit=mezo,
-dataloader_drop_last=False,
-dataloader_num_workers=0,
-dataloader_persistent_workers=False,
-dataloader_pin_memory=True,
-dataloader_prefetch_factor=None,
-ddp_backend=None,
-ddp_broadcast_buffers=None,
-ddp_bucket_cap_mb=None,
-ddp_find_unused_parameters=None,
-ddp_timeout=1800,
-debug=[],
-deepspeed=None,
-disable_tqdm=False,
-dispatch_batches=None,
-do_eval=False,
-do_predict=False,
-do_train=True,
-efficient_mezo=True,
-eval_accumulation_steps=None,
-eval_delay=0,
-eval_do_concat_batches=True,
-eval_on_start=False,
-eval_steps=None,
-eval_strategy=no,
-eval_use_gather_object=False,
-evaluation_strategy=None,
-facility_similarity=cosine,
-fp16=True,
-fp16_backend=auto,
-fp16_full_eval=False,
-fp16_opt_level=O1,
-fsdp=[],
-fsdp_config={'min_num_params': 0, 'xla': False, 'xla_fsdp_v2': False, 'xla_fsdp_grad_ckpt': False},
-fsdp_min_num_params=0,
-fsdp_transformer_layer_cls_to_wrap=None,
-full_determinism=False,
-gradient_accumulation_steps=8,
-gradient_checkpointing=False,
-gradient_checkpointing_kwargs=None,
-greater_is_better=None,
-group_by_length=False,
-half_precision_backend=auto,
-hub_always_push=False,
-hub_model_id=None,
-hub_private_repo=False,
-hub_strategy=every_save,
-hub_token=<HUB_TOKEN>,
-ignore_data_skip=False,
-include_inputs_for_metrics=False,
-include_num_input_tokens_seen=False,
-include_tokens_per_second=False,
-jit_mode_eval=False,
-keep_sources=0_1_3_5_7_8_9_10_11_13,
-label_names=None,
-label_smoothing_factor=0.0,
-last_layer_index=31,
-last_layers=['31.self_attn.v_proj'],
-learning_rate=2e-05,
-length_column_name=length,
-load_best_model_at_end=False,
-local_rank=0,
-log_level=passive,
-log_level_replica=warning,
-log_on_each_node=True,
-logging_dir=./out/phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0/runs/Jul25_13-46-26_pratapgad,
-logging_first_step=False,
-logging_nan_inf_filter=True,
-logging_steps=1.0,
-logging_strategy=steps,
-lr_scheduler_kwargs={},
-lr_scheduler_type=linear,
-max_grad_norm=1.0,
-max_new_tokens=50,
-max_steps=10240,
-metric_for_best_model=None,
-mezo_eps=0.001,
-mezo_optim=adam,
-mezo_selection=grad,
-mezo_topk=largest,
-mezo_transform=none,
-model_id=0,
-modify_forward=False,
-mp_parameters=,
-nan_grad_clip_value=1.0,
-nan_grad_handling=none,
-neftune_noise_alpha=None,
-no_cuda=False,
-non_diff=False,
-num_per_class_start=floor,
-num_train_epochs=4.0,
-only_train_option=True,
-optim=adamw_torch,
-optim_args=None,
-optim_target_modules=None,
-output_dir=./out/phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0,
-overwrite_output_dir=True,
-past_index=-1,
-per_device_eval_batch_size=8,
-per_device_train_batch_size=4,
-prediction_loss_only=False,
-proj_dim=2560,
-projector_batch_size=16,
-push_to_hub=False,
-push_to_hub_model_id=None,
-push_to_hub_organization=None,
-push_to_hub_token=<PUSH_TO_HUB_TOKEN>,
-ray_scope=last,
-remove_unused_columns=False,
-rep_dim=2560,
-report_to=['wandb'],
-restore_callback_states_from_checkpoint=False,
-resume_from_checkpoint=None,
-run_name=phi-2-math-lora-gas8-bs4-mezo-v_proj-2560_largest_grad-10240steps-seed0,
-save_indices=False,
-save_on_each_node=False,
-save_only_model=False,
-save_safetensors=True,
-save_steps=256,
-save_strategy=steps,
-save_total_limit=None,
-seed=0,
-skip_memory_metrics=True,
-small_batch_ratio=0.5,
-source_wise_selection=proportional,
-split_batches=None,
-tf32=False,
-torch_compile=False,
-torch_compile_backend=None,
-torch_compile_mode=None,
-torch_empty_cache_steps=None,
-torchdynamo=None,
-tpu_metrics_debug=False,
-tpu_num_cores=None,
-train_dataset_names=None,
-use_cpu=False,
-use_ipex=False,
-use_legacy_prediction_loop=False,
-use_mps_device=False,
-wandb_entity=hsgser,
-wandb_notes=Note,
-wandb_project=colm_math_lora_efficient,
-warmup_ratio=0.03,
-warmup_steps=0,
-weight_decay=0.0,
-zo_dim=2560,
-)
-07/25/2025 13:46:27 - INFO - __main__ - Model parameters ModelArguments(model_name_or_path='microsoft/phi-2', checkpoint_path=None, config_name=None, tokenizer_name=None, model_max_length=512, use_fast_tokenizer=True, model_revision='main', use_auth_token=False, torch_dtype='none', lora=True, lora_r=128, lora_alpha=512.0, lora_dropout=0.05, lora_target_modules=['q_proj', 'k_proj', 'v_proj', 'fc1', 'fc2'], enable_dropout=True)
-07/25/2025 13:46:27 - INFO - __main__ - Dataset parameters DataArguments(train_files=['/home/ganesh/CoLM/colm/data/MathInstruct.jsonl'], overwrite_cache=False, preprocessing_num_workers=None, max_seq_length=512, sample_data_seed=42, percentage=1.0, subset_index_files=[])
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file vocab.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/vocab.json
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file merges.txt from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/merges.txt
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file tokenizer.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/tokenizer.json
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file added_tokens.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/added_tokens.json
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file special_tokens_map.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/special_tokens_map.json
-[INFO|tokenization_utils_base.py:2289] 2025-07-25 13:47:07,206 >> loading file tokenizer_config.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/tokenizer_config.json
-[INFO|tokenization_utils_base.py:2533] 2025-07-25 13:47:07,272 >> Special tokens have been added in the vocabulary, make sure the associated word embeddings are fine-tuned or trained.
-[INFO|configuration_utils.py:733] 2025-07-25 13:47:47,311 >> loading configuration file config.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/config.json
-[INFO|configuration_utils.py:800] 2025-07-25 13:47:47,313 >> Model config PhiConfig {
-  "_name_or_path": "microsoft/phi-2",
-  "architectures": [
-    "PhiForCausalLM"
-  ],
-  "attention_dropout": 0.0,
-  "bos_token_id": 50256,
-  "embd_pdrop": 0.0,
-  "eos_token_id": 50256,
-  "hidden_act": "gelu_new",
-  "hidden_size": 2560,
-  "initializer_range": 0.02,
-  "intermediate_size": 10240,
-  "layer_norm_eps": 1e-05,
-  "max_position_embeddings": 2048,
-  "model_type": "phi",
-  "num_attention_heads": 32,
-  "num_hidden_layers": 32,
-  "num_key_value_heads": 32,
-  "partial_rotary_factor": 0.4,
-  "qk_layernorm": false,
-  "resid_pdrop": 0.1,
-  "rope_scaling": null,
-  "rope_theta": 10000.0,
-  "tie_word_embeddings": false,
-  "transformers_version": "4.43.2",
-  "use_cache": true,
-  "vocab_size": 51200
-}
-
-[INFO|modeling_utils.py:3634] 2025-07-25 13:47:47,349 >> loading weights file model.safetensors from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/model.safetensors.index.json
-Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards: 100%|██████████| 2/2 [00:00<00:00, 12748.64it/s]
-[INFO|configuration_utils.py:1038] 2025-07-25 13:47:47,351 >> Generate config GenerationConfig {
-  "bos_token_id": 50256,
-  "eos_token_id": 50256
-}
-
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.14s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.47it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.34it/s]
-[INFO|modeling_utils.py:4463] 2025-07-25 13:47:48,951 >> All model checkpoint weights were used when initializing PhiForCausalLM.
-
-[INFO|modeling_utils.py:4471] 2025-07-25 13:47:48,951 >> All the weights of PhiForCausalLM were initialized from the model checkpoint at microsoft/phi-2.
-If your task is similar to the task the model of the checkpoint was trained on, you can already use PhiForCausalLM for predictions without further training.
-[INFO|configuration_utils.py:993] 2025-07-25 13:48:28,997 >> loading configuration file generation_config.json from cache at /home/ganesh/.hf_dir3/.hf_cache/transformers/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23/generation_config.json
-[INFO|configuration_utils.py:1038] 2025-07-25 13:48:28,998 >> Generate config GenerationConfig {
-  "bos_token_id": 50256,
-  "eos_token_id": 50256
-}
-
-07/25/2025 13:48:30 - INFO - __main__ - Applied LoRA to model.
-trainable params: 167,772,160 || all params: 2,947,456,000 || trainable%: 5.6921005775828375
-07/25/2025 13:48:30 - INFO - __main__ - trainable model_params: 167772160
-PeftModelForCausalLM(
-  (base_model): LoraModel(
-    (model): PhiForCausalLM(
-      (model): PhiModel(
-        (embed_tokens): Embedding(51200, 2560)
-        (embed_dropout): Dropout(p=0.0, inplace=False)
-        (layers): ModuleList(
-          (0-31): 32 x PhiDecoderLayer(
-            (self_attn): PhiSdpaAttention(
-              (q_proj): lora.Linear(
-                (base_layer): Linear(in_features=2560, out_features=2560, bias=True)
-                (lora_dropout): ModuleDict(
-                  (default): Dropout(p=0.05, inplace=False)
-                )
-                (lora_A): ModuleDict(
-                  (default): Linear(in_features=2560, out_features=128, bias=False)
-                )
-                (lora_B): ModuleDict(
-                  (default): Linear(in_features=128, out_features=2560, bias=False)
-                )
-                (lora_embedding_A): ParameterDict()
-                (lora_embedding_B): ParameterDict()
-              )
-              (k_proj): lora.Linear(
-                (base_layer): Linear(in_features=2560, out_features=2560, bias=True)
-                (lora_dropout): ModuleDict(
-                  (default): Dropout(p=0.05, inplace=False)
-                )
-                (lora_A): ModuleDict(
-                  (default): Linear(in_features=2560, out_features=128, bias=False)
-                )
-                (lora_B): ModuleDict(
-                  (default): Linear(in_features=128, out_features=2560, bias=False)
-                )
-                (lora_embedding_A): ParameterDict()
-                (lora_embedding_B): ParameterDict()
-              )
-              (v_proj): lora.Linear(
-                (base_layer): Linear(in_features=2560, out_features=2560, bias=True)
-                (lora_dropout): ModuleDict(
-                  (default): Dropout(p=0.05, inplace=False)
-                )
-                (lora_A): ModuleDict(
-                  (default): Linear(in_features=2560, out_features=128, bias=False)
-                )
-                (lora_B): ModuleDict(
-                  (default): Linear(in_features=128, out_features=2560, bias=False)
-                )
-                (lora_embedding_A): ParameterDict()
-                (lora_embedding_B): ParameterDict()
-              )
-              (dense): Linear(in_features=2560, out_features=2560, bias=True)
-              (rotary_emb): PhiRotaryEmbedding()
-            )
-            (mlp): PhiMLP(
-              (activation_fn): NewGELUActivation()
-              (fc1): lora.Linear(
-                (base_layer): Linear(in_features=2560, out_features=10240, bias=True)
-                (lora_dropout): ModuleDict(
-                  (default): Dropout(p=0.05, inplace=False)
-                )
-                (lora_A): ModuleDict(
-                  (default): Linear(in_features=2560, out_features=128, bias=False)
-                )
-                (lora_B): ModuleDict(
-                  (default): Linear(in_features=128, out_features=10240, bias=False)
-                )
-                (lora_embedding_A): ParameterDict()
-                (lora_embedding_B): ParameterDict()
-              )
-              (fc2): lora.Linear(
-                (base_layer): Linear(in_features=10240, out_features=2560, bias=True)
-                (lora_dropout): ModuleDict(
-                  (default): Dropout(p=0.05, inplace=False)
-                )
-                (lora_A): ModuleDict(
-                  (default): Linear(in_features=10240, out_features=128, bias=False)
-                )
-                (lora_B): ModuleDict(
-                  (default): Linear(in_features=128, out_features=2560, bias=False)
-                )
-                (lora_embedding_A): ParameterDict()
-                (lora_embedding_B): ParameterDict()
-              )
-            )
-            (input_layernorm): LayerNorm((2560,), eps=1e-05, elementwise_affine=True)
-            (resid_dropout): Dropout(p=0.1, inplace=False)
-          )
-        )
-        (final_layernorm): LayerNorm((2560,), eps=1e-05, elementwise_affine=True)
-      )
-      (lm_head): Linear(in_features=2560, out_features=51200, bias=True)
-    )
-  )
-)
-Using custom data configuration default-9065fb7e379fd893
-07/25/2025 13:48:55 - INFO - datasets.builder - Using custom data configuration default-9065fb7e379fd893
-Loading Dataset Infos from /home/ganesh/.local/lib/python3.10/site-packages/datasets/packaged_modules/json
-07/25/2025 13:48:55 - INFO - datasets.info - Loading Dataset Infos from /home/ganesh/.local/lib/python3.10/site-packages/datasets/packaged_modules/json
-Overwrite dataset info from restored data version if exists.
-07/25/2025 13:48:55 - INFO - datasets.builder - Overwrite dataset info from restored data version if exists.
-Loading Dataset info from /home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092
-07/25/2025 13:48:55 - INFO - datasets.info - Loading Dataset info from /home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092
-Found cached dataset json (/home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092)
-07/25/2025 13:48:55 - INFO - datasets.builder - Found cached dataset json (/home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092)
-Loading Dataset info from /home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092
-07/25/2025 13:48:55 - INFO - datasets.info - Loading Dataset info from /home/ganesh/.hf_dir3/.hf_cache/datasets/json/default-9065fb7e379fd893/0.0.0/f4e89e8750d5d5ffbef2c078bf0ddfedef29dc2faff52a6255cf513c05eb1092
-Before selection, keys are dict_keys(['source', 'output', 'instruction', 'original_index', 'cluster', 'completion_length', 'weight'])
-Using small sources fully and 86% of large sources
-Formatting inputs...
-Discard 0 examples
-{'data/CoT/MATH_train.json': 0, 'data/CoT/TheoremQA.json': 1, 'data/CoT/aqua_rat.json': 2, 'data/CoT/college_math.json': 3, 'data/CoT/gsm_rft.json': 4, 'data/CoT/gsm_train.json': 5, 'data/CoT/math50k_camel.json': 6, 'data/CoT/number_comparison.json': 7, 'data/PoT/MATH_train.json': 8, 'data/PoT/TheoremQA.json': 9, 'data/PoT/aqua_rat_filtered.json': 10, 'data/PoT/gsm_gpt4.json': 11, 'data/PoT/mathqa.json': 12, 'data/PoT/numglue.json': 13}
-07/25/2025 13:49:26 - INFO - __main__ - TRAIN DATASET: dict_keys(['input_ids', 'labels', 'sources', 'indices', 'weights', 'completion_lengths'])
-07/25/2025 13:49:26 - INFO - __main__ - TRAIN DATASET EXAMPLE: {'input_ids': 'Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nThe length of a train and that of a platform are equal. If with a speed of 54 k/hr, the train crosses the platform in one minute, then the length of the train (in meters) is?\nAnswer Choices: (A) 752 (B) 450 (C) 719 (D) 750 (E) 712\n\n### Response:', 'labels': "Let's reason about the multi-choice question.\nSpeed = [54 * 5/18] m/sec = 15 m/sec; Time = 1 min. = 60 sec.\nLet the length of the train and that of the platform be x meters.\nThen, 2x/60 = 15 Ã¨ x = 15 * 60 / 2 = 450\nThe answer is B<|endoftext|>", 'sources': 2, 'indices': 99085, 'weights': 0.18493150684931506, 'completion_lengths': 81}
-[train set] examples: 235833; # avg tokens: 394.3258153015057
-[train set] examples: 235833; # avg completion tokens: 479.3911878320676
-07/25/2025 13:49:27 - INFO - __main__ - Using data collator <class 'colm.data.get_training_dataset.DataCollatorForSupervisedDatasetWithSource'>
-07/25/2025 13:49:27 - INFO - __main__ - Keep all examples of the following sources in the mini-batch.
-07/25/2025 13:49:27 - INFO - __main__ - data/CoT/MATH_train.json
-07/25/2025 13:49:27 - INFO - __main__ - data/CoT/TheoremQA.json
-07/25/2025 13:49:27 - INFO - __main__ - data/CoT/college_math.json
-07/25/2025 13:49:27 - INFO - __main__ - data/CoT/gsm_train.json
-07/25/2025 13:49:27 - INFO - __main__ - data/CoT/number_comparison.json
-07/25/2025 13:49:27 - INFO - __main__ - data/PoT/MATH_train.json
-07/25/2025 13:49:27 - INFO - __main__ - data/PoT/TheoremQA.json
-07/25/2025 13:49:27 - INFO - __main__ - data/PoT/aqua_rat_filtered.json
-07/25/2025 13:49:27 - INFO - __main__ - data/PoT/gsm_gpt4.json
-07/25/2025 13:49:27 - INFO - __main__ - data/PoT/numglue.json
-07/25/2025 13:49:27 - INFO - __main__ - Keep source indices in [0, 1, 3, 5, 7, 8, 9, 10, 11, 13]
-07/25/2025 13:49:27 - INFO - __main__ - Using SubsetTrainerEfficient
-07/25/2025 13:49:27 - INFO - __main__ - Finished wandb setup.
-Gradient accumulation args: {'num_steps': 8, 'sync_with_dataloader': False}
-[WARNING|trainer.py:598] 2025-07-25 13:49:33,953 >> max_steps is given, it will override any value given in num_train_epochs
-[INFO|trainer.py:648] 2025-07-25 13:49:33,953 >> Using auto half precision backend
-07/25/2025 13:49:33 - INFO - __main__ - Last layers are ['31.self_attn.v_proj.lora_B']
-07/25/2025 13:49:34 - INFO - __main__ - Signature columns is ['input_ids', 'attention_mask', 'position_ids', 'past_key_values', 'inputs_embeds', 'labels', 'use_cache', 'output_attentions', 'output_hidden_states', 'return_dict', 'cache_position', 'label_ids', 'labels', 'label']
-07/25/2025 13:49:34 - INFO - __main__ - ***** Running training *****
-07/25/2025 13:49:34 - INFO - __main__ -   Num examples = 235,833
-07/25/2025 13:49:34 - INFO - __main__ -   Num Epochs = 2
-07/25/2025 13:49:34 - INFO - __main__ -   Instantaneous batch size per device = 4
-07/25/2025 13:49:34 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 32
-07/25/2025 13:49:34 - INFO - __main__ -   Actual train batch size with ratio 0.5 = 16
-07/25/2025 13:49:34 - INFO - __main__ -   Gradient Accumulation steps = 8
-07/25/2025 13:49:34 - INFO - __main__ -   Total optimization steps = 10,240
-07/25/2025 13:49:34 - INFO - __main__ -   Number of trainable parameters = 167,772,160
-[INFO|integration_utils.py:786] 2025-07-25 13:49:34,691 >> Automatic Weights & Biases logging enabled, to disable set os.environ["WANDB_DISABLED"] = "true"
-  0%|          | 0/10240 [00:00<?, ?it/s]07/25/2025 13:49:34 - INFO - __main__ - Steps in epoch is 58959
-/home/ganesh/miniconda3/envs/colm/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:667: UserWarning: Sinkhorn did not converge. You might want to increase the number of iterations `numItermax` or the regularization parameter `reg`.
-  warnings.warn(
-/home/ganesh/CoLM/colm/train/fairot.py:48: RuntimeWarning: overflow encountered in exp
-  exp_S_scaled = np.exp(S_a / reg)
-/home/ganesh/CoLM/colm/train/fairot.py:91: RuntimeWarning: invalid value encountered in multiply
-  alpha[interior_mask] = scaling_factor * exp_S_scaled[interior_mask]
-/home/ganesh/CoLM/colm/train/fairot.py:66: RuntimeWarning: invalid value encountered in divide
-  alpha = exp_S_scaled / np.sum(exp_S_scaled)
-BEst gains [0.5154552610342282, 0.8025807583031976]
-orders 2 [ 0 10]
-/home/ganesh/miniconda3/envs/colm/lib/python3.10/site-packages/ot/bregman/_sinkhorn.py:624: RuntimeWarning: divide by zero encountered in divide
-  Kp = (1 / a).reshape(-1, 1) * K
-BEst gains [0.16231627840749308]
-orders 1 [3]
-[rank0]:[W reducer.cpp:1360] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
-  0%|          | 1/10240 [00:08<23:59:07,  8.43s/it]                                                    {'loss': 1.6365, 'grad_norm': 2.099658250808716, 'learning_rate': 6.493506493506495e-08, 'epoch': 0.0}
-  0%|          | 1/10240 [00:08<23:59:07,  8.43s/it]BEst gains [0.16231626989254377]
-orders 1 [4]
-BEst gains [0.5138630032158434]
-orders 1 [0]
-  0%|          | 2/10240 [00:15<21:46:26,  7.66s/it]                                                    {'loss': 2.0343, 'grad_norm': 1.9554409980773926, 'learning_rate': 1.298701298701299e-07, 'epoch': 0.0}
-  0%|          | 2/10240 [00:15<21:46:26,  7.66s/it]BEst gains [0.20782406985271415, 0.43114909114556355, 0.3460484120028522, 0.13295211404689566, 0.2305652828981648]
-orders 5 [ 3  5 10 13  7]
-BEst gains [0.5069314569044383, 0.12183151143317017]
-orders 2 [1 0]
-BEst gains [0.5103972673130439, 0.12876305608889116]
-orders 2 [0 2]
-BEst gains [0.3443194959564443]
-orders 1 [0]
-  0%|          | 3/10240 [00:23<22:31:07,  7.92s/it]                                                    {'loss': 2.9272, 'grad_norm': 2.639944314956665, 'learning_rate': 1.948051948051948e-07, 'epoch': 0.0}
-  0%|          | 3/10240 [00:23<22:31:07,  7.92s/it]BEst gains [0.5138630032158437, 0.48956352036023343]
-orders 2 [2 3]
-BEst gains [1.006931591014889]
-orders 1 [0]
-BEst gains [0.4480305811516772]
-orders 1 [0]
-  0%|          | 4/10240 [00:31<22:35:59,  7.95s/it]                                                    {'loss': 1.7253, 'grad_norm': 1.5040541887283325, 'learning_rate': 2.597402597402598e-07, 'epoch': 0.0}
-  0%|          | 4/10240 [00:31<22:35:59,  7.95s/it]BEst gains [0.511512985069615, 1.0160944983336306]
-orders 2 [2 3]
-BEst gains [0.34431953569287416]
-orders 1 [1]
-BEst gains [0.5144519183941256, 0.7563027943239071]
-orders 2 [0 5]
-BEst gains [1.0138630330181662]
-orders 1 [3]
-  0%|          | 5/10240 [00:41<23:56:34,  8.42s/it]                                                    {'loss': 1.7649, 'grad_norm': 1.7513883113861084, 'learning_rate': 3.2467532467532465e-07, 'epoch': 0.0}
-  0%|          | 5/10240 [00:41<23:56:34,  8.42s/it]BEst gains [0.34467069767530367, 0.8194260562437178, 0.6964418463827926]
-orders 3 [2 3 6]
-BEst gains [0.5144519183941256, 1.0219723649826518]
-orders 2 [1 4]
-BEst gains [1.006931591014889]
-orders 1 [0]
-  0%|          | 6/10240 [00:50<24:45:13,  8.71s/it]                                                    {'loss': 1.633, 'grad_norm': 1.6660267114639282, 'learning_rate': 3.896103896103896e-07, 'epoch': 0.0}
-  0%|          | 6/10240 [00:50<24:45:13,  8.71s/it]BEst gains [0.25967802984607796, 1.024849175773057, 1.0248491559048312, 1.0248491559047932]
-orders 4 [1 8 2 7]
-BEst gains [0.5103972673130439, 1.0138630628204885]
-orders 2 [0 1]
-BEst gains [0.5131953462527211, 0.6873882761369837]
-orders 2 [0 1]
-  0%|          | 7/10240 [00:58<24:40:46,  8.68s/it]                                                    {'loss': 1.8626, 'grad_norm': 1.7617673873901367, 'learning_rate': 4.5454545454545457e-07, 'epoch': 0.0}
-  0%|          | 7/10240 [00:58<24:40:46,  8.68s/it]BEst gains [0.5138630032158437, 1.0207945346260878]
-orders 2 [2 7]
-BEst gains [0.006931531410244284]
-orders 1 [0]
-BEst gains [0.5115129373859418, 1.0160943672034044]
-orders 2 [3 0]
-BEst gains [0.5138630032158437, 1.0207945197249266]
-orders 2 [7 1]
-  0%|          | 8/10240 [01:06<23:16:38,  8.19s/it]                                                    {'loss': 2.1516, 'grad_norm': 2.572567939758301, 'learning_rate': 5.194805194805196e-07, 'epoch': 0.0}
-  0%|          | 8/10240 [01:06<23:16:38,  8.19s/it]BEst gains [0.34431949154128527, 0.7980175610775564, 0.6627312578619389]
-orders 3 [3 4 5]
-BEst gains [0.34431949595644423, 1.0219723649826518, 1.0219723649826522]
-orders 3 [0 3 4]
-BEst gains [0.3423601911788653, 0.6429024974333163, 0.41737472509688844]
-orders 3 [5 3 4]
-  0%|          | 9/10240 [01:14<23:08:02,  8.14s/it]                                                    {'loss': 2.5145, 'grad_norm': 6.476842880249023, 'learning_rate': 5.844155844155845e-07, 'epoch': 0.0}
-  0%|          | 9/10240 [01:14<23:08:02,  8.14s/it]BEst gains [0.7997501030239997]
-orders 1 [3]
-BEst gains [1.0109862023595408]
-orders 1 [1]
-BEst gains [0.7337449009257601]
-orders 1 [5]
-  0%|          | 10/10240 [01:22<23:29:01,  8.26s/it]                                                     {'loss': 1.8534, 'grad_norm': 2.089243173599243, 'learning_rate': 6.493506493506493e-07, 'epoch': 0.0}
-  0%|          | 10/10240 [01:22<23:29:01,  8.26s/it]BEst gains [0.25946050388711805, 0.8470693961526354, 0.8025808064685676, 0.6433283443262625]
-orders 4 [ 8  6  7 11]
-BEst gains [0.5115129671883353, 1.0160944387288784]
-orders 2 [4 1]
-BEst gains [0.5089588370825702, 0.3470225701862121]
-orders 2 [1 2]
-BEst gains [0.5138629734135212]
-orders 1 [0]
-  0%|          | 11/10240 [01:30<22:45:26,  8.01s/it]                                                     {'loss': 2.3121, 'grad_norm': 3.2022063732147217, 'learning_rate': 7.142857142857143e-07, 'epoch': 0.0}
-  0%|          | 11/10240 [01:30<22:45:26,  8.01s/it]BEst gains [0.5124245829194773, 0.6384215299902356]
-orders 2 [5 2]
-BEst gains [0.5103972524119327, 1.013863033018118]
-orders 2 [0 1]
-BEst gains [0.34431949595644423, 1.0219723649826518, 1.021972278887054]
-orders 3 [2 3 1]
-BEst gains [0.5103972524118826, 0.4826319988840967]
-orders 2 [2 1]
-  0%|          | 12/10240 [01:39<24:22:37,  8.58s/it]                                                     {'loss': 1.9942, 'grad_norm': 2.5489628314971924, 'learning_rate': 7.792207792207792e-07, 'epoch': 0.0}
-  0%|          | 12/10240 [01:39<24:22:37,  8.58s/it]BEst gains [1.0219723517371753]
-orders 1 [2]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-BEst gains [1.0160944983336306]
-orders 1 [4]
-BEst gains [0.3443195356928741]
-orders 1 [0]
-  0%|          | 13/10240 [01:48<24:34:59,  8.65s/it]                                                     {'loss': 1.8613, 'grad_norm': 2.194812774658203, 'learning_rate': 8.441558441558442e-07, 'epoch': 0.0}
-  0%|          | 13/10240 [01:48<24:34:59,  8.65s/it]BEst gains [0.343926880870536, 0.5730069540965286, 0.3023379853484196]
-orders 3 [0 2 6]
-BEst gains [0.5103972524119327, 1.0138630032158102]
-orders 2 [0 3]
-BEst gains [1.0179176940333552]
-orders 1 [2]
-BEst gains [1.0109862420959708]
-orders 1 [2]
-  0%|          | 14/10240 [01:57<24:53:17,  8.76s/it]                                                     {'loss': 2.0334, 'grad_norm': 2.257650852203369, 'learning_rate': 9.090909090909091e-07, 'epoch': 0.0}
-  0%|          | 14/10240 [01:57<24:53:17,  8.76s/it]BEst gains [0.34467069767530367, 0.8194260684355769, 0.6964418658897671]
-orders 3 [0 3 5]
-BEst gains [0.5089588172144144, 1.0109861030184486]
-orders 2 [2 0]
-BEst gains [0.5138630032158437, 1.0207945346260878]
-orders 2 [0 7]
-BEst gains [0.5069315314102444, 0.1218315776605533]
-orders 2 [0 1]
-  0%|          | 15/10240 [02:06<24:57:48,  8.79s/it]                                                     {'loss': 2.1572, 'grad_norm': 2.102480173110962, 'learning_rate': 9.740259740259742e-07, 'epoch': 0.0}
-  0%|          | 15/10240 [02:06<24:57:48,  8.79s/it]BEst gains [0.3457922717973743, 1.0263906925054422, 1.0263906839904928]
-orders 3 [1 9 8]
-BEst gains [1.006931591014889]
-orders 1 [0]
-BEst gains [1.0138630628204885]
-orders 1 [3]
-BEst gains [0.006931471805599453]
-orders 1 [0]
-  0%|          | 16/10240 [02:15<24:45:43,  8.72s/it]                                                     {'loss': 2.3698, 'grad_norm': 2.589789390563965, 'learning_rate': 1.0389610389610392e-06, 'epoch': 0.0}
-  0%|          | 16/10240 [02:15<24:45:43,  8.72s/it]BEst gains [0.5144519183941256, 1.0219723649826518]
-orders 2 [0 5]
-BEst gains [0.5089588569507851, 0.347022609922642]
-orders 2 [0 1]
-BEst gains [1.0194591440652996]
-orders 1 [4]
-BEst gains [1.006931591014889]
-orders 1 [0]
-  0%|          | 17/10240 [02:24<25:30:28,  8.98s/it]                                                     {'loss': 2.1824, 'grad_norm': 2.1719768047332764, 'learning_rate': 1.103896103896104e-06, 'epoch': 0.0}
-  0%|          | 17/10240 [02:24<25:30:28,  8.98s/it]BEst gains [0.25967802984607796, 1.024849175773057, 1.0248491757730425, 1.0248491757730216]
-orders 4 [0 1 2 3]
-BEst gains [0.5089588569507851, 1.0109862420959712]
-orders 2 [1 2]
-BEst gains [0.5131953377377719, 0.6873882818136167]
-orders 2 [2 3]
-BEst gains [0.006931471805599453]
-orders 1 [1]
-  0%|          | 18/10240 [02:33<25:41:23,  9.05s/it]                                                     {'loss': 1.9704, 'grad_norm': 2.1512610912323, 'learning_rate': 1.168831168831169e-06, 'epoch': 0.0}
-  0%|          | 18/10240 [02:33<25:41:23,  9.05s/it]BEst gains [1.0219723649826518]
-orders 1 [0]
-BEst gains [1.0160944983336306]
-orders 1 [1]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-BEst gains [0.3443194959564443]
-orders 1 [0]
-  0%|          | 19/10240 [02:42<24:50:02,  8.75s/it]                                                     {'loss': 1.6779, 'grad_norm': 1.9123996496200562, 'learning_rate': 1.2337662337662338e-06, 'epoch': 0.0}
-  0%|          | 19/10240 [02:42<24:50:02,  8.75s/it]BEst gains [0.17416636799421772, 0.8991542744452102, 0.8870959471757779, 0.8610255631666259, 0.8025511208554388, 0.6175168518005298]
-orders 6 [ 2  4  7  8 11  0]
-BEst gains [0.5103972673130439, 0.12876308257984448]
-orders 2 [3 0]
-BEst gains [0.5089588370826292, 1.0109861626230805]
-orders 2 [2 0]
-BEst gains [0.006931471805599453]
-orders 1 [0]
-  0%|          | 20/10240 [02:50<24:46:23,  8.73s/it]                                                     {'loss': 2.3032, 'grad_norm': 1.943844199180603, 'learning_rate': 1.2987012987012986e-06, 'epoch': 0.0}
-  0%|          | 20/10240 [02:50<24:46:23,  8.73s/it]BEst gains [1.02302597013923]
-orders 1 [9]
-BEst gains [1.0109862023595408]
-orders 1 [1]
-BEst gains [1.0160944983336306]
-orders 1 [1]
-  0%|          | 21/10240 [02:59<24:54:17,  8.77s/it]                                                     {'loss': 1.9966, 'grad_norm': 2.3150899410247803, 'learning_rate': 1.3636363636363636e-06, 'epoch': 0.0}
-  0%|          | 21/10240 [02:59<24:54:17,  8.77s/it]BEst gains [0.34527843288659715, 1.0248491658389456, 1.0248491559048227]
-orders 3 [ 3  2 11]
-BEst gains [1.006931591014889]
-orders 1 [0]
-BEst gains [1.0194592036699444]
-orders 1 [2]
-  0%|          | 22/10240 [03:06<23:44:00,  8.36s/it]                                                     {'loss': 2.6329, 'grad_norm': 2.151106357574463, 'learning_rate': 1.4285714285714286e-06, 'epoch': 0.0}
-  0%|          | 22/10240 [03:07<23:44:00,  8.36s/it]BEst gains [0.2598781390987759, 1.0256496127839054, 1.0256496127839045, 1.025649612783905]
-orders 4 [0 1 2 4]
-BEst gains [0.511512985069615, 0.573370534203558]
-orders 2 [1 2]
-BEst gains [1.006931591014889]
-orders 1 [0]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-  0%|          | 23/10240 [03:14<22:51:15,  8.05s/it]                                                     {'loss': 1.8965, 'grad_norm': 1.9433683156967163, 'learning_rate': 1.4935064935064936e-06, 'epoch': 0.0}
-  0%|          | 23/10240 [03:14<22:51:15,  8.05s/it]BEst gains [0.6845843010953769]
-orders 1 [0]
-BEst gains [1.0109862420959708]
-orders 1 [1]
-  0%|          | 24/10240 [03:23<23:26:36,  8.26s/it]                                                     {'loss': 1.7901, 'grad_norm': 2.492103099822998, 'learning_rate': 1.5584415584415584e-06, 'epoch': 0.0}
-  0%|          | 24/10240 [03:23<23:26:36,  8.26s/it]BEst gains [0.34467069767530367, 1.02302597013923, 1.023025946297372]
-orders 3 [3 6 8]
-BEst gains [1.0109862420959708]
-orders 1 [1]
-BEst gains [0.5131953377377719, 0.6873882818136167]
-orders 2 [1 4]
-BEst gains [0.006931501607921841]
-orders 1 [1]
-  0%|          | 25/10240 [03:33<24:52:47,  8.77s/it]                                                     {'loss': 1.9, 'grad_norm': 1.6179404258728027, 'learning_rate': 1.6233766233766235e-06, 'epoch': 0.0}
-  0%|          | 25/10240 [03:33<24:52:47,  8.77s/it]BEst gains [0.2594605038871181, 0.8470694166229176, 0.8025808293471179, 0.6433283758057722]
-orders 4 [1 4 7 9]
-BEst gains [0.5103972673130439, 0.4826320803437779]
-orders 2 [1 4]
-BEst gains [0.5103972375107881, 1.0138629734135463]
-orders 2 [3 0]
-BEst gains [1.0138630628204885]
-orders 1 [2]
-  0%|          | 26/10240 [03:42<25:04:03,  8.84s/it]                                                     {'loss': 2.1037, 'grad_norm': 1.7648491859436035, 'learning_rate': 1.6883116883116885e-06, 'epoch': 0.0}
-  0%|          | 26/10240 [03:42<25:04:03,  8.84s/it]BEst gains [0.511512985069615, 1.0160944983336306]
-orders 2 [0 1]
-BEst gains [0.5124245928535848, 1.017917694033355]
-orders 2 [2 4]
-BEst gains [0.34467069767530367, 1.02302597013923, 1.0230259701392304]
-orders 3 [0 1 2]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-  0%|          | 27/10240 [03:51<25:53:03,  9.12s/it]                                                     {'loss': 1.7248, 'grad_norm': 1.8486623764038086, 'learning_rate': 1.7532467532467535e-06, 'epoch': 0.0}
-  0%|          | 27/10240 [03:51<25:53:03,  9.12s/it]BEst gains [0.5138630032158437, 1.0207945346260878]
-orders 2 [0 7]
-BEst gains [0.5089588569507851, 1.010986202359541]
-orders 2 [0 1]
-BEst gains [0.511512985069615, 1.0160944983336306]
-orders 2 [0 3]
-BEst gains [0.5138630032158437, 1.0207945346260878]
-orders 2 [2 3]
-  0%|          | 28/10240 [03:59<25:02:36,  8.83s/it]                                                     {'loss': 1.956, 'grad_norm': 2.175794839859009, 'learning_rate': 1.8181818181818183e-06, 'epoch': 0.0}
-  0%|          | 28/10240 [03:59<25:02:36,  8.83s/it]BEst gains [1.0248491857071698]
-orders 1 [1]
-  0%|          | 29/10240 [04:08<25:08:13,  8.86s/it]                                                     {'loss': 2.1706, 'grad_norm': 2.2270865440368652, 'learning_rate': 1.8831168831168833e-06, 'epoch': 0.0}
-  0%|          | 29/10240 [04:08<25:08:13,  8.86s/it]BEst gains [0.5138630032158437, 1.0207945346260878]
-orders 2 [0 1]
-BEst gains [0.511512985069615, 1.0160944983336306]
-orders 2 [0 1]
-BEst gains [0.34431949154130614, 1.0219723517371628, 1.0219723517371329]
-orders 3 [1 2 8]
-BEst gains [0.5089588569507851, 1.0109862420959712]
-orders 2 [0 1]
-  0%|          | 30/10240 [04:18<25:41:08,  9.06s/it]                                                     {'loss': 2.5638, 'grad_norm': 2.527798891067505, 'learning_rate': 1.9480519480519483e-06, 'epoch': 0.0}
-  0%|          | 30/10240 [04:18<25:41:08,  9.06s/it]BEst gains [1.0194592206998427]
-orders 1 [6]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-BEst gains [1.01791771390157]
-orders 1 [0]
-  0%|          | 31/10240 [04:27<25:59:21,  9.16s/it]                                                     {'loss': 1.7104, 'grad_norm': 1.6852326393127441, 'learning_rate': 2.012987012987013e-06, 'epoch': 0.0}
-  0%|          | 31/10240 [04:27<25:59:21,  9.16s/it]BEst gains [0.3455452452235287, 1.0256496127839045, 1.025649612783905]
-orders 3 [3 4 5]
-BEst gains [1.0069315314102443]
-orders 1 [1]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-BEst gains [0.511512985069615, 1.0160944983336306]
-orders 2 [1 4]
-  0%|          | 32/10240 [04:35<24:33:26,  8.66s/it]                                                     {'loss': 2.0654, 'grad_norm': 1.7601332664489746, 'learning_rate': 2.0779220779220784e-06, 'epoch': 0.0}
-  0%|          | 32/10240 [04:35<24:33:26,  8.66s/it]BEst gains [0.5138630032158437, 0.7256123494520689]
-orders 2 [4 3]
-BEst gains [0.5131953377378045, 1.0194592036699126]
-orders 2 [1 3]
-BEst gains [1.0160944983336306]
-orders 1 [0]
-  0%|          | 33/10240 [04:44<24:52:49,  8.78s/it]                                                     {'loss': 2.0341, 'grad_norm': 2.8136932849884033, 'learning_rate': 2.1428571428571427e-06, 'epoch': 0.0}
-  0%|          | 33/10240 [04:44<24:52:49,  8.78s/it]BEst gains [0.5138630032158437, 1.0207945048237654]
-orders 2 [4 1]
-BEst gains [0.511512985069615, 1.0160944744917728]
-orders 2 [4 0]
-BEst gains [0.5089588370825701, 0.08239955531538556]
-orders 2 [1 3]
-BEst gains [1.0160944744917728]
-orders 1 [1]
-  0%|          | 34/10240 [04:54<25:49:31,  9.11s/it]                                                     {'loss': 1.6954, 'grad_norm': 2.040025472640991, 'learning_rate': 2.207792207792208e-06, 'epoch': 0.0}
-  0%|          | 34/10240 [04:54<25:49:31,  9.11s/it]BEst gains [1.0248491757730622]
-orders 1 [0]
-BEst gains [0.34431953569287416]
-orders 1 [0]
-  0%|          | 35/10240 [05:02<24:44:48,  8.73s/it]                                                     {'loss': 1.362, 'grad_norm': 1.4757249355316162, 'learning_rate': 2.2727272727272728e-06, 'epoch': 0.0}
-  0%|          | 35/10240 [05:02<24:44:48,  8.73s/it]BEst gains [0.26006340690043395, 1.0263906839904884, 1.0263906754755276, 1.0263906754755125]
-orders 4 [6 9 5 8]
-BEst gains [0.5124245928535848, 0.6384215621578219]
-orders 2 [1 2]
-BEst gains [1.006931591014889]
-orders 1 [0]
-  0%|          | 36/10240 [05:10<24:32:12,  8.66s/it]                                                     {'loss': 2.1195, 'grad_norm': 1.9444788694381714, 'learning_rate': 2.337662337662338e-06, 'epoch': 0.0}
-  0%|          | 36/10240 [05:10<24:32:12,  8.66s/it]BEst gains [0.5144519183941256, 1.0219723649826518]
-orders 2 [0 1]
-BEst gains [1.0194592206998427]
-orders 1 [3]
-BEst gains [1.0138630628204885]
-orders 1 [0]
-  0%|          | 37/10240 [05:20<25:14:34,  8.91s/it]                                                     {'loss': 1.9517, 'grad_norm': 1.6026954650878906, 'learning_rate': 2.402597402597403e-06, 'epoch': 0.01}
-  0%|          | 37/10240 [05:20<25:14:34,  8.91s/it]BEst gains [0.3452784361979501, 1.0248491857071695, 1.0248491857071695]
-orders 3 [0 3 5]
-BEst gains [0.5103972673130439, 1.0138630330181662]
-orders 2 [0 1]
-BEst gains [1.0109862420959708]
-orders 1 [1]
-BEst gains [1.0138630628204885]
-orders 1 [0]
-  0%|          | 38/10240 [05:29<25:22:29,  8.95s/it]                                                     {'loss': 1.9681, 'grad_norm': 1.7381622791290283, 'learning_rate': 2.4675324675324676e-06, 'epoch': 0.01}
-  0%|          | 38/10240 [05:29<25:22:29,  8.95s/it]BEst gains [0.3443194959564442, 0.798017578710597, 0.6627312741538751]
-orders 3 [0 4 5]
-BEst gains [0.511512985069615, 1.0160944506499148]
-orders 2 [0 3]
-BEst gains [1.0160944744917728]
-orders 1 [3]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-  0%|          | 39/10240 [05:37<24:43:20,  8.72s/it]                                                     {'loss': 2.225, 'grad_norm': 2.188717842102051, 'learning_rate': 2.5324675324675324e-06, 'epoch': 0.01}
-  0%|          | 39/10240 [05:37<24:43:20,  8.72s/it]BEst gains [0.5149787209724147, 1.0230259701392304]
-orders 2 [1 2]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-BEst gains [1.0160944983336306]
-orders 1 [0]
-BEst gains [1.0109862420959708]
-orders 1 [0]
-  0%|          | 40/10240 [05:46<25:26:30,  8.98s/it]                                                     {'loss': 2.0494, 'grad_norm': 1.9988787174224854, 'learning_rate': 2.597402597402597e-06, 'epoch': 0.01}
-  0%|          | 40/10240 [05:46<25:26:30,  8.98s/it]BEst gains [0.2596780323295922, 1.0248491857071695, 1.024849175773062, 1.02484917577305]
-orders 4 [0 2 3 7]
-BEst gains [0.5089588569507851, 1.0109862420959712]
-orders 2 [0 1]
-BEst gains [0.5131953462527211, 1.0194592206998427]
-orders 2 [0 1]
-BEst gains [0.5103972673130439, 1.0138630628204885]
-orders 2 [0 1]
-  0%|          | 41/10240 [05:55<25:00:56,  8.83s/it]                                                     {'loss': 2.3968, 'grad_norm': 1.8850657939910889, 'learning_rate': 2.6623376623376624e-06, 'epoch': 0.01}
-  0%|          | 41/10240 [05:55<25:00:56,  8.83s/it]BEst gains [0.34431949595644423, 0.4623237622686667, 0.12390993954068374]
-orders 3 [ 8  9 11]
-BEst gains [1.0109862023595408]
-orders 1 [1]
-BEst gains [0.5103972524119327, 1.0138629734135027]
-orders 2 [2 0]
-BEst gains [0.013862973413521322]
-orders 1 [1]
-  0%|          | 42/10240 [06:03<24:37:45,  8.69s/it]                                                     {'loss': 1.6568, 'grad_norm': 1.5555964708328247, 'learning_rate': 2.7272727272727272e-06, 'epoch': 0.01}
-  0%|          | 42/10240 [06:03<24:37:45,  8.69s/it]BEst gains [0.34498839827465133, 1.0239790719372734, 1.0239790719372737]
-orders 3 [1 2 6]
-BEst gains [0.5089588569507851, 1.010986202359541]
-orders 2 [0 1]
-BEst gains [0.5115129850696148, 0.573370542150844]
-orders 2 [4 3]
-BEst gains [1.0138630628204885]
-orders 1 [0]
-  0%|          | 43/10240 [06:13<25:26:23,  8.98s/it]                                                     {'loss': 2.3454, 'grad_norm': 2.469174385070801, 'learning_rate': 2.7922077922077925e-06, 'epoch': 0.01}
-  0%|          | 43/10240 [06:13<25:26:23,  8.98s/it]BEst gains [0.3446706937016606, 0.8194260455419748, 0.6964418364125613]
-orders 3 [2 6 8]
-BEst gains [0.5124245928535848, 1.01791771390157]
-orders 2 [0 1]
-BEst gains [0.5103972673130439, 1.0138630628204885]
-orders 2 [0 1]
-BEst gains [0.5103972524119327, 1.013863033018118]
-orders 2 [0 1]
-  0%|          | 44/10240 [06:20<24:06:39,  8.51s/it]                                                     {'loss': 2.1172, 'grad_norm': 2.008981704711914, 'learning_rate': 2.8571428571428573e-06, 'epoch': 0.01}
-  0%|          | 44/10240 [06:20<24:06:39,  8.51s/it]
