@@ -114,7 +114,7 @@ def optimal_alpha_vectorized(sorted_S_a: np.ndarray, sorted_indices: np.ndarray,
     sum_exp_interior = np.sum(np.exp(sorted_S_a[:p] / reg))
     # scaling_factor = (1.0 - sum_boundary) / sum_exp_interior if sum_boundary < 1.0 else 0
     scaling_factor = 1
-
+    # TODO: check scaling factor
     # Compute alpha values
     alpha = np.zeros(n)
     print("Scaling factor", scaling_factor)
