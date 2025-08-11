@@ -4,6 +4,12 @@ import numpy as np
 import torch
 from trak.projectors import BasicProjector, CudaProjector
 from torch.nn.utils.rnn import pad_sequence
+import torch
+import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+from typing import Callable, Dict
+import torch.nn.functional as F
 
 
 def collate_fn(batch_dicts):
@@ -201,3 +207,36 @@ def get_rank(tensor):
         len(flattened_tensor)).to(flattened_tensor.device)
 
     return rank_tensor
+
+
+def compute_cost_matrix(X_source: torch.Tensor, X_target: torch.Tensor, metric: str = "euclidean", return_sims=False) -> torch.Tensor:
+    """
+    Computes cost matrix between two sets of vectors.
+
+    Args:
+        X_source: (n, d)
+        X_target: (m, d)
+        metric: 'euclidean', 'dot', or 'cosine'
+
+    Returns:
+        torch.Tensor of shape (n, m)
+    """
+    if metric == "euclidean":
+        if(return_sims): return torch.cdist(X_source, X_target, p=2), -torch.cdist(X_source, X_target, p=2)
+        return torch.cdist(X_source, X_target, p=2)
+
+    elif metric == "dot":
+        # Negative dot product as cost (maximize dot = minimize negative dot)
+        if(return_sims): return - X_source @ X_target.T, X_source @ X_target.T
+        return - X_source @ X_target.T
+
+    elif metric == "cosine":
+        # Normalize
+        X1 = F.normalize(X_source, dim=1)
+        X2 = F.normalize(X_target, dim=1)
+        cosine_sim = X1 @ X2.T
+        if(return_sims): return 1-cosine_sim, cosine_sim
+        return 1 - cosine_sim  # cost = 1 - similarity
+
+    else:
+        raise ValueError(f"Unsupported metric: {metric}")

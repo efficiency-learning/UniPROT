@@ -88,7 +88,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_max_length", default=1024, type=int)
     parser.add_argument("--cot_backup", action='store_true', default=False)
     parser.add_argument("--enable_lora", action='store_true', default=False)
-    parser.add_argument("--cache_dir", default='/data/huggingface_models', type=str)
 
     args = parser.parse_args()
     
@@ -108,23 +107,22 @@ if __name__ == "__main__":
         if is_peft:
             # load this way to make sure that optimizer states match the model structure
             config = LoraConfig.from_pretrained(args.model)
-            llm = LLM(model=config.base_model_name_or_path, tokenizer=args.model, tensor_parallel_size=torch.cuda.device_count(), dtype=args.dtype, trust_remote_code=True, gpu_memory_utilization=gpu_memory_utilization, enable_lora=args.enable_lora, download_dir=args.cache_dir, max_lora_rank=128)
+            llm = LLM(model=config.base_model_name_or_path, tokenizer=args.model, tensor_parallel_size=torch.cuda.device_count(), dtype=args.dtype, trust_remote_code=True, gpu_memory_utilization=gpu_memory_utilization, enable_lora=args.enable_lora, max_lora_rank=128)
         else:
-            llm = LLM(model=args.model, tokenizer=args.model, tensor_parallel_size=torch.cuda.device_count(), dtype=args.dtype, trust_remote_code=True, gpu_memory_utilization=gpu_memory_utilization, enable_lora=args.enable_lora, download_dir=args.cache_dir, max_lora_rank=128, revision="main")
+            llm = LLM(model=args.model, tokenizer=args.model, tensor_parallel_size=torch.cuda.device_count(), dtype=args.dtype, trust_remote_code=True, gpu_memory_utilization=gpu_memory_utilization, enable_lora=args.enable_lora, max_lora_rank=128, revision="main")
         args.batch_size = -1
         print('Using VLLM, we do not need to set batch size!')
     else:
         tokenizer = AutoTokenizer.from_pretrained(
             args.model,
             padding_side="left",
-            trust_remote_code=True,
-            cache_dir=args.cache_dir)
+            trust_remote_code=True)
         
         if is_peft:
             # load this way to make sure that optimizer states match the model structure
             config = LoraConfig.from_pretrained(args.model)
             base_model = AutoModelForCausalLM.from_pretrained(
-                config.base_model_name_or_path, torch_dtype=DTYPES[args.dtype], device_map="auto", cache_dir=args.cache_dir)
+                config.base_model_name_or_path, torch_dtype=DTYPES[args.dtype], device_map="auto")
             model = PeftModel.from_pretrained(
                 base_model, args.model, device_map="auto")
         else:
@@ -133,8 +131,7 @@ if __name__ == "__main__":
                 device_map="auto",
                 load_in_8bit=args.load_8bit,
                 torch_dtype=DTYPES[args.dtype],
-                trust_remote_code=True,
-                cache_dir=args.cache_dir)
+                trust_remote_code=True)
         model.eval()
         
         # pad token is not added by default for pretrained models

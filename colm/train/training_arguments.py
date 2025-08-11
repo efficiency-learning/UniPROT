@@ -13,7 +13,7 @@ trainer_log_levels = dict(**log_levels, passive=-1)
 @dataclass
 class TrainingArguments(TA):
     analysis_mode: float = field(
-        default=False,
+        default=True,
         metadata={
             "help": (
                 "Whether to run in analysis mode. "
@@ -50,7 +50,7 @@ class TrainingArguments(TA):
             "help": (
                 "Method to select examples in the large batch. "
             ),
-            "choices": ["submodlib", "weightedsubmodlib", "none"],
+            # "choices": ["submodlib", "weightedsubmodlib", "none"],
         },
     )
     efficient_mezo: bool = field(

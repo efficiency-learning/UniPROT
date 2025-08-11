@@ -40,11 +40,6 @@ class ModelArguments:
             "help": ("The maximum total input sequence length after tokenization. Sequences longer than this will be truncated,")
         },
     )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
-    )
     use_fast_tokenizer: bool = field(
         default=False,
         metadata={

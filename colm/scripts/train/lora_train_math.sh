@@ -37,7 +37,7 @@ if [[ ! -d $output_dir ]]; then
     mkdir -p $output_dir
 fi
 
-train_files="/data/MathInstruct.jsonl"
+train_files="/home/ganesh/CoLM/colm/data/MathInstruct.jsonl"
 
 # Set LoRA modules
 if [[ $model_path == "microsoft/phi-2" ]]; then

@@ -19,8 +19,8 @@ This repository is the official implementation of our ICLR 2025 paper [Mini-batc
 
 ## Install Requirements
 ```bash
-conda create -n colm python=3.10
-conda activate colm
+conda create -n colmnew python=3.10
+conda activate colmnew
 conda install -c nvidia cuda-python
 pip install -r requirement.txt --no-cache-dir --no-build-isolation
 git clone https://github.com/hsgser/vllm.git

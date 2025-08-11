@@ -26,7 +26,6 @@ do
         --cot_backup \
         --use_vllm \
         --dtype $dtype \
-        --cache_dir /data/hf_models \
         --print"
     echo $eval_command
     CUDA_VISIBLE_DEVICES=$DEVICE $eval_command 2>&1 | tee "${out_path}/${dataset}/eval.log"
@@ -44,7 +43,6 @@ do
         --cot_backup \
         --print \
         --dtype $dtype \
-        --cache_dir /data/hf_models \
         --use_vllm"
     echo $eval_command
     CUDA_VISIBLE_DEVICES=$DEVICE $eval_command 2>&1 | tee "${out_path}/${dataset}/eval.log"

@@ -1,6 +1,11 @@
 #!/bin/bash
 # Weighted length sampling
-
+export HF_DIR="/home/ganesh/.hf_dir3"
+export HF_HOME="$HF_DIR/.hf_cache"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export TRANSFORMERS_CACHE="$HF_HOME/transformers"
+export HF_METRICS_CACHE="$HF_HOME/metrics"
+export WANDB_MODE=disabled
 DATA_DIR=./data
 ORG_NAME=microsoft # microsoft, meta-llama, stabilityai
 MODEL_NAME=phi-2 # phi-2, Phi-3-mini-4k-instruct, Meta-Llama-3.1-8B-Instruct, stablelm-zephyr-3b
@@ -19,7 +24,7 @@ do
     MAX_LENGTH=512
     DROPOUT=True
     # Selection
-    SELECTION_METHOD=submodlib  # submodlib, weightedsubmodlib, none
+    SELECTION_METHOD=spot  # submodlib, weightedsubmodlib, spot, none
     BATCH_RATIO=0.5
     DATA_SELECTION=mezo  # rep, mezo, masked_grad, grad, proj_grad, mezo_rep, completion_length, length_loss_weighted
     FACILITY_SELECT=l1  # cosine, euclidean, l1
@@ -43,5 +48,5 @@ do
     WANDB_PROJECT=colm_math_lora_efficient
 
     echo "Writing output to" $JOB_NAME
-    CUDA_VISIBLE_DEVICES=0,1,2,3 ./colm/scripts/train/lora_train_math.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME" "$GAS" "$RANK" "$ALPHA" "$BATCH_RATIO" "$SELECTION_METHOD" "$ZO_DIM" "$DATA_SELECTION" "$SAVE_STRATEGY" "$SAVE_STEPS" "$MAX_STEPS" "$FACILITY_SELECT" "$MEZO_SELECTION" "$MAX_LENGTH" "$DROPOUT" "$MEZO_TOPK" "$MEZO_EPS" "$MEZO_OPTIM" "$SOURCE_WISE" "$LAST_LAYERS" "$MEZO_TRANSFORM" "$WANDB_PROJECT" "$KEEP_SOURCES" "$DEVICE_BS" "$EFF_MEZO"
+    ./colm/scripts/train/lora_train_math.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME" "$GAS" "$RANK" "$ALPHA" "$BATCH_RATIO" "$SELECTION_METHOD" "$ZO_DIM" "$DATA_SELECTION" "$SAVE_STRATEGY" "$SAVE_STEPS" "$MAX_STEPS" "$FACILITY_SELECT" "$MEZO_SELECTION" "$MAX_LENGTH" "$DROPOUT" "$MEZO_TOPK" "$MEZO_EPS" "$MEZO_OPTIM" "$SOURCE_WISE" "$LAST_LAYERS" "$MEZO_TRANSFORM" "$WANDB_PROJECT" "$KEEP_SOURCES" "$DEVICE_BS" "$EFF_MEZO"
 done
