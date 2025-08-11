@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 
 # List of log file paths
 log_files = [
-    "/home/ganesh/CoLM/colm/train/logs/spot.log",
-    "/home/ganesh/CoLM/colm/train/logs/fairot.log"
+    "/home/ganesh/CoLM/colm/train/logs/spot_10k.log",
+    "/home/ganesh/CoLM/colm/train/logs/fairot_10k.log",
+    "/home/ganesh/CoLM/colm/train/logs/fairotmmulti_10k.log"
 ]
+
 
 # Output image path
 output_image_path = "/home/ganesh/CoLM/colm/train/logs/multiple_loss_plot.png"

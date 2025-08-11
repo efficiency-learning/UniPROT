@@ -20,14 +20,14 @@ do
     ALPHA=512
     SAVE_STRATEGY=steps # epoch, steps
     SAVE_STEPS=256
-    MAX_STEPS=5 # total number of gradient updates
+    MAX_STEPS=10240 # total number of gradient updates
     MAX_LENGTH=512
     DROPOUT=True
     # Selection
-    SELECTION_METHOD=spot  # submodlib, weightedsubmodlib, spot, none
+    SELECTION_METHOD=fairot_multisource  # submodlib, weightedsubmodlib, none
     BATCH_RATIO=0.5
     DATA_SELECTION=mezo  # rep, mezo, masked_grad, grad, proj_grad, mezo_rep, completion_length, length_loss_weighted
-    FACILITY_SELECT=l1  # cosine, euclidean, l1
+    FACILITY_SELECT=cosine  # cosine, euclidean, l1
     SOURCE_WISE=proportional # none, proportional, balanced
     LAST_LAYERS=v_proj
     KEEP_SOURCES="0_1_3_5_7_8_9_10_11_13" # small source indices
@@ -48,5 +48,5 @@ do
     WANDB_PROJECT=colm_math_lora_efficient
 
     echo "Writing output to" $JOB_NAME
-    ./colm/scripts/train/lora_train_math.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME" "$GAS" "$RANK" "$ALPHA" "$BATCH_RATIO" "$SELECTION_METHOD" "$ZO_DIM" "$DATA_SELECTION" "$SAVE_STRATEGY" "$SAVE_STEPS" "$MAX_STEPS" "$FACILITY_SELECT" "$MEZO_SELECTION" "$MAX_LENGTH" "$DROPOUT" "$MEZO_TOPK" "$MEZO_EPS" "$MEZO_OPTIM" "$SOURCE_WISE" "$LAST_LAYERS" "$MEZO_TRANSFORM" "$WANDB_PROJECT" "$KEEP_SOURCES" "$DEVICE_BS" "$EFF_MEZO"
+    CUDA_VISIBLE_DEVICES=0 ./colm/scripts/train/lora_train_math.sh "$DATA_DIR" "$MODEL_PATH" "$PERCENTAGE" "$DATA_SEED" "$JOB_NAME" "$GAS" "$RANK" "$ALPHA" "$BATCH_RATIO" "$SELECTION_METHOD" "$ZO_DIM" "$DATA_SELECTION" "$SAVE_STRATEGY" "$SAVE_STEPS" "$MAX_STEPS" "$FACILITY_SELECT" "$MEZO_SELECTION" "$MAX_LENGTH" "$DROPOUT" "$MEZO_TOPK" "$MEZO_EPS" "$MEZO_OPTIM" "$SOURCE_WISE" "$LAST_LAYERS" "$MEZO_TRANSFORM" "$WANDB_PROJECT" "$KEEP_SOURCES" "$DEVICE_BS" "$EFF_MEZO"
 done
