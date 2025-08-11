@@ -249,3 +249,10 @@ venv/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Submodule issues - ignore modified content in submodules
+baselines/MMDcritic/
+MMDcritic/
+
+# Git submodule tracking
+.gitmodules
