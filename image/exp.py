@@ -9,6 +9,7 @@ import random
 import os
 import sys
 import torch
+import matplotlib.pyplot as plt
 
 # Add the parent python directory to the path to import SPOTgreedy and MMD-critic
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'baselines'))
@@ -136,14 +137,16 @@ def prototype_selection(X, y, target_X, target_y, k_per_class=10, method='spotgr
     total_prototypes = min(len(classes) * k_per_class, len(X))
     
     # Create target distribution (uniform across all classes)
-    target_marginal = np.ones(len(X)) / len(X)
+    target_marginal = np.ones(len(target_X)) / len(target_X)
     
     device = "cuda"
     target_marginal_torch = torch.from_numpy(target_marginal).float().to(device)
+    # Convert distance matrix to torch tensor for SPOTgreedy
+    dist_torch = torch.from_numpy(dist).float().to(device)
     
     print(f"Using SPOTgreedy to select {total_prototypes} prototypes...")
     # Use SPOTgreedy to select prototypes
-    selected_indices = SPOT_GreedySubsetSelection(dist, target_marginal_torch, total_prototypes)
+    selected_indices = SPOT_GreedySubsetSelection(dist_torch, target_marginal_torch, total_prototypes)
     selected_indices = selected_indices.cpu().numpy()
     
     prototypes_X = X[selected_indices]
@@ -157,6 +160,98 @@ def evaluate_1nn(P_X, P_y, target_X, target_y):
     pred = clf.predict(target_X)
     acc = accuracy_score(target_y, pred)
     return acc
+
+def plot_class_histogram(target_y, classes, skew_percent, dataset_name, method, run_idx):
+    plt.figure(figsize=(8, 4))
+    counts = [np.sum(target_y == cls) for cls in classes]
+    plt.bar(classes, counts, color='skyblue')
+    plt.xlabel('Class')
+    plt.ylabel('Frequency')
+    plt.title(f'{dataset_name} - {method} - Skew {skew_percent}% (Run {run_idx+1})')
+    plt.tight_layout()
+    plot_dir = os.path.join(os.path.dirname(__file__), 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    filename = f'{dataset_name}_{method}_skew{skew_percent}_run{run_idx+1}_histogram.png'
+    filepath = os.path.join(plot_dir, filename)
+    plt.savefig(filepath, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved histogram plot: {filepath}")
+
+def balance_source_set(source_X, source_y, samples_per_class=None):
+    """
+    Ensure the source set has uniform class representation.
+    """
+    classes = np.unique(source_y)
+    class_counts = [np.sum(source_y == cls) for cls in classes]
+    if samples_per_class is None:
+        samples_per_class = min(class_counts)
+    balanced_indices = []
+    for cls in classes:
+        cls_indices = np.where(source_y == cls)[0]
+        if len(cls_indices) >= samples_per_class:
+            selected = np.random.choice(cls_indices, samples_per_class, replace=False)
+        else:
+            selected = cls_indices
+        balanced_indices.extend(selected)
+    balanced_indices = np.array(balanced_indices)
+    np.random.shuffle(balanced_indices)
+    return source_X[balanced_indices], source_y[balanced_indices]
+
+def plot_accuracy_curve_comparison(prototype_counts, all_method_accuracies, dataset_name, skew_percent):
+    """
+    Plot accuracy curves for all methods on the same plot for comparison.
+    
+    Args:
+        prototype_counts: List of prototype counts tested
+        all_method_accuracies: Dict with method names as keys and accuracy lists as values
+        dataset_name: Name of the dataset
+        skew_percent: Skew percentage
+    """
+    print(f"DEBUG: Plotting accuracy curves for {dataset_name} - {skew_percent}% skew")
+    print(f"DEBUG: Prototype counts: {prototype_counts}")
+    print(f"DEBUG: All method accuracies: {all_method_accuracies}")
+    
+    if len(prototype_counts) == 0:
+        print("WARNING: No prototype counts to plot!")
+        return
+    
+    if len(all_method_accuracies) == 0:
+        print("WARNING: No method accuracies to plot!")
+        return
+    
+    plt.figure(figsize=(12, 8))
+    
+    colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink']
+    markers = ['o', 's', '^', 'D', 'v', '<', '>']
+    
+    for i, (method, accuracies) in enumerate(all_method_accuracies.items()):
+        print(f"DEBUG: Method {method}: {len(accuracies)} accuracies: {accuracies}")
+        if len(accuracies) > 0:
+            color = colors[i % len(colors)]
+            marker = markers[i % len(markers)]
+            x_vals = prototype_counts[:len(accuracies)]
+            print(f"DEBUG: Plotting {method} with x_vals: {x_vals}, y_vals: {accuracies}")
+            plt.plot(x_vals, accuracies, 
+                    marker=marker, linewidth=2, markersize=8, 
+                    label=method.upper(), color=color)
+    
+    plt.xlabel('Number of Prototypes', fontsize=12)
+    plt.ylabel('1-NN Accuracy', fontsize=12)
+    plt.title(f'{dataset_name} - Skew {skew_percent}% - Method Comparison', fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend(fontsize=10)
+    plt.tight_layout()
+    
+    # Create directory for plots if it doesn't exist
+    plot_dir = os.path.join(os.path.dirname(__file__), 'plots')
+    os.makedirs(plot_dir, exist_ok=True)
+    
+    # Save plot
+    filename = f'{dataset_name}_skew{skew_percent}_method_comparison_accuracy_curve.png'
+    filepath = os.path.join(plot_dir, filename)
+    plt.savefig(filepath, dpi=150, bbox_inches='tight')
+    plt.close()
+    print(f"Saved method comparison plot: {filepath}")
 
 def run_split_dataset_experiments(dataset_name, k_proto=10, skew_percent_list=[10, 30, 50, 70, 100], runs=5, methods=['spotgreedy', 'mmd_critic', 'uniform'], subsample=True):
     """
@@ -201,6 +296,8 @@ def run_split_dataset_experiments(dataset_name, k_proto=10, skew_percent_list=[1
     scaler = StandardScaler()
     source_X = scaler.fit_transform(source_X.astype(np.float32))
     target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
+    # Balance the source set to ensure uniform class representation
+    source_X, source_y = balance_source_set(source_X, source_y)
     
     # For computational efficiency, subsample large datasets
     if subsample and len(source_X) > 5000:
@@ -219,32 +316,66 @@ def run_split_dataset_experiments(dataset_name, k_proto=10, skew_percent_list=[1
     
     results_summary = {}
     
-    for method in methods:
+    for skew_percent in skew_percent_list:
         print(f"\n{'='*70}")
-        print(f"{dataset_name} Experiments with {method.upper()} prototype selection")
+        print(f"Testing with {skew_percent}% skew across all methods")
         print(f"{'='*70}")
         
-        # Select prototypes from source set using specified method
-        # print("Selecting prototypes from source set...")
-        # prototypes_X, prototypes_y = prototype_selection(source_X, source_y, target_X, target_y, k_per_class=k_proto, method=method)
+        # Collect accuracy curves for all methods for this skew
+        all_method_accuracy_curves = {}
         
-        method_results = {}
-        
-        for skew_percent in skew_percent_list:
-            print(f"\n--- Testing with {skew_percent}% skew ---")
+        for method in methods:
+            print(f"\n--- {method.upper()} Method ---")
             
             skew_results = []
+            # For accuracy curve plotting - Fix the range issue
+            prototype_counts = list(range(5, min(5, k_proto * 20), 5))  
+            if len(prototype_counts) == 0:  # Fallback if range is empty
+                prototype_counts = [5, 10, 15, 20, 25]
+            print(f"DEBUG: Testing prototype counts: {prototype_counts}")
+            method_accuracy_curves = []
             
             for run in range(runs):
-                print(f"Run {run+1}/{runs} for {skew_percent}% skew")
+                print(f"Run {run+1}/{runs} for {method} with {skew_percent}% skew")
                 
                 # Generate target set with specified skew from target pool
                 target_X, target_y = generate_target_set_from_pool(target_pool_X, target_pool_y, 
                                                                     skew_percent, total_size=2000)
+                
+                # Plot histogram for class distribution in target set (only for first run and first method)
+                if run == 0 and method == methods[0]:
+                    classes = np.unique(target_y)
+                    plot_class_histogram(target_y, classes, skew_percent, dataset_name, 'all_methods', run)
+                
+                # Test different prototype counts for accuracy curve
+                run_accuracies = []
+                for proto_count in prototype_counts:
+                    try:
+                        print(f"  Testing with {proto_count} prototypes...")
+                        k_per_class_val = max(1, proto_count//len(np.unique(source_y)))
+                        prototypes_X, prototypes_y = prototype_selection(source_X, source_y, 
+                                                                        target_X, target_y, 
+                                                                        k_per_class=k_per_class_val, 
+                                                                        method=method)
+                        
+                        if len(prototypes_X) == 0:
+                            print(f"    Warning: No prototypes selected for {proto_count} count. Skipping.")
+                            run_accuracies.append(0.0)
+                            continue
+                            
+                        accuracy = evaluate_1nn(prototypes_X, prototypes_y, target_X, target_y)
+                        run_accuracies.append(accuracy)
+                    except Exception as e:
+                        print(f"    Error with {proto_count} prototypes: {e}")
+                        run_accuracies.append(0.0)
+                
+                method_accuracy_curves.append(run_accuracies)
+                
+                # Also run with original k_proto for main results
                 print("Selecting prototypes from source set...")
                 prototypes_X, prototypes_y = prototype_selection(source_X, source_y, 
-                                                                    target_X, target_y, 
-                                                                    k_per_class=k_proto, method=method)
+                                                                target_X, target_y, 
+                                                                k_per_class=k_proto, method=method)
                 
                 # Evaluate 1-NN accuracy
                 accuracy = evaluate_1nn(prototypes_X, prototypes_y, target_X, target_y)
@@ -252,13 +383,21 @@ def run_split_dataset_experiments(dataset_name, k_proto=10, skew_percent_list=[1
                 
                 print(f"  Accuracy: {accuracy:.4f}")
             
+            # Store average accuracy curve for this method
+            if method_accuracy_curves:
+                avg_accuracies = np.mean(method_accuracy_curves, axis=0)
+                all_method_accuracy_curves[method] = avg_accuracies
+            
+            results_summary[method] = results_summary.get(method, {})
             if skew_results:
                 mean_acc = np.mean(skew_results)
                 std_acc = np.std(skew_results)
                 print(f"\n{skew_percent}% skew results: {mean_acc:.4f} ± {std_acc:.4f}")
-                method_results[f'skew_{skew_percent}'] = {'mean': mean_acc, 'std': std_acc}
+                results_summary[method][f'skew_{skew_percent}'] = {'mean': mean_acc, 'std': std_acc}
         
-        results_summary[method] = method_results
+        # Plot comparison of all methods for this skew level
+        if all_method_accuracy_curves:
+            plot_accuracy_curve_comparison(prototype_counts, all_method_accuracy_curves, dataset_name, skew_percent)
     
     # Print comparison summary
     print(f"\n{'='*70}")
@@ -401,30 +540,67 @@ def run_mnist_experiments(k_proto=10, skew_percent_list=[10, 30, 50, 70, 100], r
     scaler = StandardScaler()
     source_X = scaler.fit_transform(source_X.astype(np.float32))
     target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
+    # Balance the source set to ensure uniform class representation
+    source_X, source_y = balance_source_set(source_X, source_y)
     
     print(f"MNIST dataset sizes - Source: {len(source_X)}, Target pool: {len(target_pool_X)}")
     
     results_summary = {}
     
-    for method in methods:
+    for skew_percent in skew_percent_list:
         print(f"\n{'='*70}")
-        print(f"MNIST Experiments with {method.upper()} prototype selection")
+        print(f"Testing with {skew_percent}% skew across all methods")
         print(f"{'='*70}")
         
-        method_results = {}
+        # Collect accuracy curves for all methods for this skew
+        all_method_accuracy_curves = {}
         
-        for skew_percent in skew_percent_list:
-            print(f"\n--- Testing with {skew_percent}% skew ---")
+        for method in methods:
+            print(f"\n--- {method.upper()} Method ---")
             
             skew_results = []
+            # For accuracy curve plotting - Fix the range issue
+            prototype_counts = list(range(5, min(5, k_proto * 20), 5))  
+            if len(prototype_counts) == 0:  # Fallback if range is empty
+                prototype_counts = [10, 20, 30, 40, 50]
+            print(f"DEBUG: Testing prototype counts: {prototype_counts}")
+            method_accuracy_curves = []
             
             for run in range(runs):
-                print(f"Run {run+1}/{runs} for {skew_percent}% skew")
+                print(f"Run {run+1}/{runs} for {method} with {skew_percent}% skew")
                 
                 # Generate target set with specified skew from target pool
                 target_X, target_y = generate_mnist_target_set(target_pool_X, target_pool_y, 
                                                              skew_percent, total_size=2000)
                 
+                # Plot histogram for class distribution in target set (only for first run and first method)
+                if run == 0 and method == methods[0]:
+                    classes = np.unique(target_y)
+                    plot_class_histogram(target_y, classes, skew_percent, 'MNIST', 'all_methods', run)
+                
+                # Test different prototype counts for accuracy curve
+                run_accuracies = []
+                for proto_count in prototype_counts:
+                    try:
+                        print(f"  Testing with {proto_count} prototypes...")
+                        prototypes_X, prototypes_y = prototype_selection(source_X, source_y, 
+                                                                        target_X, target_y, 
+                                                                        k_per_class=proto_count//10,  # MNIST has 10 classes
+                                                                        method=method)
+                        
+                        if len(prototypes_X) == 0:
+                            run_accuracies.append(0.0)
+                            continue
+                            
+                        accuracy = evaluate_1nn(prototypes_X, prototypes_y, target_X, target_y)
+                        run_accuracies.append(accuracy)
+                    except Exception as e:
+                        print(f"    Error with {proto_count} prototypes: {e}")
+                        run_accuracies.append(0.0)
+                
+                method_accuracy_curves.append(run_accuracies)
+                
+                # Also run with original k_proto for main results
                 print("Selecting prototypes from source set...")
                 prototypes_X, prototypes_y = prototype_selection(source_X, source_y, 
                                                                 target_X, target_y, 
@@ -436,13 +612,21 @@ def run_mnist_experiments(k_proto=10, skew_percent_list=[10, 30, 50, 70, 100], r
                 
                 print(f"  Accuracy: {accuracy:.4f}")
             
+            # Store average accuracy curve for this method
+            if method_accuracy_curves:
+                avg_accuracies = np.mean(method_accuracy_curves, axis=0)
+                all_method_accuracy_curves[method] = avg_accuracies
+            
+            results_summary[method] = results_summary.get(method, {})
             if skew_results:
                 mean_acc = np.mean(skew_results)
                 std_acc = np.std(skew_results)
                 print(f"\n{skew_percent}% skew results: {mean_acc:.4f} ± {std_acc:.4f}")
-                method_results[f'skew_{skew_percent}'] = {'mean': mean_acc, 'std': std_acc}
+                results_summary[method][f'skew_{skew_percent}'] = {'mean': mean_acc, 'std': std_acc}
         
-        results_summary[method] = method_results
+        # Plot comparison of all methods for this skew level
+        if all_method_accuracy_curves:
+            plot_accuracy_curve_comparison(prototype_counts, all_method_accuracy_curves, 'MNIST', skew_percent)
     
     # Print comparison summary
     print(f"\n{'='*70}")
@@ -545,7 +729,7 @@ def run_experiments(dataset_name, total_target=1000, k_proto=10, skew_percent_li
 if __name__ == "__main__":
     # Test with small datasets first and fewer runs for faster testing
     #methods_to_test = ['spotgreedy', 'mmd_critic', 'fairot_approx', 'fairot_exact', 'uniform']
-    methods_to_test = ['fairot_approx']  # Reduced for faster testing
+    methods_to_test = ['spotgreedy', 'mmd_critic']  # Reduced for faster testing
     print("Starting comprehensive protorSPOtype selection evaluation...")
     print(f"Methods to test: {', '.join(methods_to_test)}")
     print("=" * 80)
@@ -556,7 +740,7 @@ if __name__ == "__main__":
     
     # Datasets with specific experimental protocols
     # protocol_datasets = ['Letter', 'USPS', 'tinyimagenet']
-    protocol_datasets = ['Flickr']
+    protocol_datasets = ['mnist']
     for dataset in protocol_datasets:
         print(f"\n{'*'*80}")
         print(f"DATASET: {dataset} (Paper-specific Protocol)")
@@ -566,7 +750,7 @@ if __name__ == "__main__":
             dataset_name=dataset,
             runs=1,  # Reduced for faster testing
             methods=methods_to_test,
-            k_proto=5  # Reduced for faster computation
+            k_proto=1  # Reduced for faster computation
         )
         all_results[dataset] = results
     
