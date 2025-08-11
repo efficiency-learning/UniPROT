@@ -22,19 +22,84 @@ def load_dataset(name):
         letter = fetch_openml("letter", version=1)
         X, y = letter.data.to_numpy(), letter.target
         y = np.array([ord(c) - ord('A') for c in y])  # convert 'A'-'Z' to 0-25
-        return X, y
+        
+        # Split into source and target pools
+        from sklearn.model_selection import train_test_split
+        source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+            X, y, train_size=0.7, random_state=42, stratify=y
+        )
+        return (source_X, source_y), (target_pool_X, target_pool_y)
 
     elif name == 'Digits':
         from sklearn.datasets import load_digits
         digits = load_digits()
         X, y = digits.data, digits.target
-        return X, y
+        
+        # Split into source and target pools
+        from sklearn.model_selection import train_test_split
+        source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+            X, y, train_size=0.7, random_state=42, stratify=y
+        )
+        return (source_X, source_y), (target_pool_X, target_pool_y)
 
     elif name == 'Wine':
         from sklearn.datasets import load_wine
         wine = load_wine()
         X, y = wine.data, wine.target
-        return X, y
+        
+        # Split into source and target pools
+        from sklearn.model_selection import train_test_split
+        source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+            X, y, train_size=0.7, random_state=42, stratify=y
+        )
+        return (source_X, source_y), (target_pool_X, target_pool_y)
+
+    elif name == 'mnist':
+        try:
+            from sklearn.datasets import fetch_openml
+            print("Loading MNIST dataset...")
+            mnist = fetch_openml('mnist_784', version=1)
+            X, y = mnist.data.to_numpy(), mnist.target.astype(int)
+            
+            print(f"MNIST dataset: {len(X)} samples, {len(np.unique(y))} classes")
+            print(f"Feature shape: {X.shape}")
+            
+            # Following the protocol: use standard MNIST train/test split
+            # Standard MNIST has 60k train + 10k test
+            # We'll use 70% for source, 30% for target pool (similar to train/test ratio)
+            total_samples = len(X)
+            source_size = int(0.7 * total_samples)  # 70% for source
+            
+            print(f"Planning to select {source_size} samples for source from {total_samples} total")
+            
+            # Stratified split to maintain class distribution
+            from sklearn.model_selection import train_test_split
+            source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+                X, y, train_size=source_size, random_state=42, stratify=y
+            )
+            
+            print(f"Source set: {len(source_X)} samples")
+            print(f"Target pool: {len(target_pool_X)} samples")
+            print(f"Classes in source: {np.unique(source_y)}")
+            print(f"Classes in target pool: {np.unique(target_pool_y)}")
+            
+            return (source_X, source_y), (target_pool_X, target_pool_y)
+        except Exception as e:
+            print(f"Error loading MNIST: {e}")
+            # Fallback to sklearn digits if MNIST fails
+            print("Falling back to sklearn digits dataset...")
+            from sklearn.datasets import load_digits
+            digits = load_digits()
+            X, y = digits.data, digits.target
+            
+            # Split digits dataset similarly
+            from sklearn.model_selection import train_test_split
+            source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+                X, y, train_size=0.7, random_state=42, stratify=y
+            )
+            
+            return (source_X, source_y), (target_pool_X, target_pool_y)
+
 
     elif name == 'Letter':
         from sklearn.datasets import fetch_openml
@@ -47,14 +112,10 @@ def load_dataset(name):
         print(f"Letter dataset: {len(X)} samples, {len(np.unique(y))} classes")
         
         # Create source set (4K samples)
-        source_indices = np.random.choice(len(X), 4000, replace=False)
-        source_X, source_y = X[source_indices], y[source_indices]
-        
-        # Create remaining set for target construction
-        remaining_mask = np.ones(len(X), dtype=bool)
-        remaining_mask[source_indices] = False
-        target_pool_X = X[remaining_mask]
-        target_pool_y = y[remaining_mask]
+        from sklearn.model_selection import train_test_split
+        source_X, target_pool_X, source_y, target_pool_y = train_test_split(
+            X, y, train_size=4000, random_state=42, stratify=y
+        )
         
         return (source_X, source_y), (target_pool_X, target_pool_y)
 
@@ -131,12 +192,13 @@ def load_dataset(name):
         return (source_X, source_y), (target_pool_X, target_pool_y)
     elif name == 'Flickr':
         # Check if the flickr file exists, if not skip this dataset
-        if not os.path.exists('flickr_features.npz'):
-            print(f"Warning: flickr_features.npz not found. Skipping Flickr dataset.")
-            return None, None
+        flickr_path = os.path.join(os.path.dirname(__file__), 'flickr_features.npz')
+        if not os.path.exists(flickr_path):
+            print(f"Warning: flickr_features.npz not found at {flickr_path}. Skipping Flickr dataset.")
+            return None
         
         print("Loading Flickr dataset...")
-        data = np.load('flickr_features.npz', allow_pickle=True)
+        data = np.load(flickr_path, allow_pickle=True)
         X, y = data['X'], data['y']
         
         print(f"Flickr dataset: {len(X)} samples, features shape: {X.shape}")
