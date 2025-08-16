@@ -6,6 +6,11 @@ import torch
 import ot  # POT library
 from tqdm import tqdm
 from FairOT.sinkhorn import pot_partial_extended, pot_partial_library
+from joblib import Parallel, delayed
+
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
 
 try:
     import cupy as cp
@@ -85,6 +90,7 @@ class FairOptimalTransport:
             S = self.similarity_matrix
         
         n = S.shape[1]  # number of target samples
+        m = S.shape[0]  # number of source samples
         
         for step in tqdm(range(k), desc="Exact greedy selection"):
             if len(P_actual) == 0:
@@ -101,7 +107,8 @@ class FairOptimalTransport:
             best_gain = -np.inf
             best_v = None
             
-            for v in set(range(S.shape[0])) - set(P_actual):  # Use S.shape[0] for number of source samples
+            # Fix: Select from source side (rows), not target side (columns)
+            for v in set(range(m)) - set(P_actual):  # Use m (number of source samples)
                 P_new = P_actual + [v]
                 S_P_new = S[np.ix_(P_new, range(n))]
                 mu_P_new = np.ones(len(P_new)) / len(P_new)
@@ -135,16 +142,14 @@ class FairOptimalTransport:
         obj_values_approx_lib = []
         gamma_P = None
         obj_P = 0.0
-        
-        # Get similarity matrix and dimensions
-        if self.use_sparse and CUPY_AVAILABLE:
-            S = cp.asnumpy(self.similarity_matrix)  # Convert cupy to numpy for processing
-        elif isinstance(self.similarity_matrix, torch.Tensor):
+
+        if isinstance(self.similarity_matrix, torch.Tensor):
             S = self.similarity_matrix.cpu().numpy()
         else:
             S = self.similarity_matrix
         
         n = S.shape[1]  # number of target samples
+        m = S.shape[0]  # number of source samples
         mu_T = k * np.ones(n) / n
 
         sorted_indices_all = np.argsort(-S, axis=1)  # Sort indices for all rows of S
@@ -152,7 +157,7 @@ class FairOptimalTransport:
         #print("All of S is sorted")
         
         for step in tqdm(range(k), desc="Approx greedy selection"):
-            start_time = time.time()
+            #start_time = time.time()
 
             if len(P_approx_lib) == 0:
                 gamma_P = None
@@ -180,16 +185,25 @@ class FairOptimalTransport:
             b = mu_T - col_sums
             b = np.clip(b, 0, None)
 
-            # Optimize the loop over candidates
-            candidates = np.array(list(set(range(n)) - set(P_approx_lib)))  # Convert to NumPy array for faster indexing
+            # Fix: Optimize the loop over source candidates, not target
+            candidates = np.array(list(set(range(m)) - set(P_approx_lib)))  # Use m (source samples)
             sorted_indices_candidates = sorted_indices_all[candidates]  # Precompute sorted indices for candidates
             sorted_S_candidates = sorted_S_all[candidates]  # Precompute sorted similarity vectors for candidates
-            
+
+            def compute_single_gain(args):
+                i, v = args
+                return self._approx_gain(P_approx_lib, gamma_P, v, S, sorted_S_candidates[i], sorted_indices_candidates[i], b, k, self.reg)
+
             # Vectorized computation of approximate gains for all candidates
-            gains = np.array([
-                self._approx_gain(P_approx_lib, gamma_P, v, S, sorted_S_candidates[i], sorted_indices_candidates[i], b, k, self.reg)
-                for i, v in enumerate(candidates)
-            ])
+            start_time = time.time()
+
+            print(f"Total candidate search space", len(candidates))
+            with ThreadPoolExecutor(max_workers=8) as executor:  # Limit workers to reduce overhead
+                gains = list(executor.map(compute_single_gain, enumerate(candidates)))
+
+            end_time = time.time()
+
+            print(f"Approx gain outer iterations in {end_time - start_time:.4f} seconds")
 
             # Select the best candidate
             best_gain_idx = np.argmax(gains)
@@ -197,8 +211,7 @@ class FairOptimalTransport:
             best_v = candidates[best_gain_idx]
 
             P_approx_lib.append(best_v)
-            end_time = time.time()
-            #print(f"Step {step+1}/{k}: Selected {best_v} in {end_time - start_time:.4f} seconds")
+
 
         # Final objective
         S_P = S[np.ix_(P_approx_lib, range(n))]
@@ -233,11 +246,11 @@ class FairOptimalTransport:
             obj_old = 0.0
             return obj_new - obj_old
         else:
+            #start_time = time.time()
+
             m = len(P)
             S_P = S[np.ix_(P, range(n))]
-    # ensure non-negative upper bounds
-            # Use closed-form for optimal alpha
-            #alpha = np.zeros(n)
+
             alpha = self._optimal_alpha_vectorized(S_a.flatten(), sorted_indices, b, reg)
             gamma_tilde = np.vstack([gamma_P, alpha.reshape(1, n)])
             obj = np.sum(S_P * gamma_P) + np.sum(S_a * alpha)
@@ -247,6 +260,10 @@ class FairOptimalTransport:
             mask_old = gamma_P > 0
             entropy_old = -np.sum(gamma_P[mask_old] * np.log(gamma_P[mask_old]))
             obj_old = np.sum(S_P * gamma_P) + reg * entropy_old
+        
+            #end_time = time.time()
+
+            #print(f"Approx gain time in {end_time - start_time:.4f} seconds")
             return obj - obj_old
 
 

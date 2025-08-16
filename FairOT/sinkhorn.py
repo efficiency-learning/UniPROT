@@ -65,7 +65,7 @@ def pot_partial_extended(S_sub: np.ndarray, k: int, mu_P: np.ndarray,
 
 
 def pot_partial_library(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg: float) -> np.ndarray:
-
+    start_time = time.time()
     m, n = S_sub.shape
     # Cost matrix is negative similarity
     C = -S_sub
@@ -98,6 +98,8 @@ def pot_partial_library(S_sub: np.ndarray, k: int, mu_P: np.ndarray, reg: float)
     #print(f"Column sums: {np.sum(gamma_star, axis=0)}")
     
     obj_value = np.sum(S_sub * gamma_star)- reg*np.sum(gamma_star * np.log(gamma_star + 1e-10))  # Avoid log(0)
+    end_time = time.time()
+    print(f"Sinkhorn iterations in {end_time - start_time:.4f} seconds")
 
     return gamma_star, obj_value
 
