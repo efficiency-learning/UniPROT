@@ -186,9 +186,14 @@ class FairOptimalTransport:
             b = np.clip(b, 0, None)
 
             # Fix: Optimize the loop over source candidates, not target
-            candidates = np.array(list(set(range(m)) - set(P_approx_lib)))  # Use m (source samples)
-            sorted_indices_candidates = sorted_indices_all[candidates]  # Precompute sorted indices for candidates
-            sorted_S_candidates = sorted_S_all[candidates]  # Precompute sorted similarity vectors for candidates
+            candidates = np.asarray(list(set(range(m)) - set(P_approx_lib)))  # Convert to numpy array
+            if len(candidates) == 0:
+                print("True: candidates not available")
+                break  # No more candidates available
+                
+            # Ensure arrays are numpy arrays
+            sorted_indices_candidates = sorted_indices_all[candidates]  # Index with numpy array
+            sorted_S_candidates = sorted_S_all[candidates]  # Index with numpy array
 
             def compute_single_gain(args):
                 i, v = args
