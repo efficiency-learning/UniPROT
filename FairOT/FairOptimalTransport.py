@@ -23,19 +23,19 @@ except ImportError:
     cp_sparse = None
 
 class FairOptimalTransport:
-    def __init__(self, regularization: float = 0.05, similarity_sigma: float = 1.0, device: str = 'cuda', use_sparse: bool = True):
+    def __init__(self, regularization: float = 0.05, similarity_sigma: float = 1.0, device: str = 'cpu', use_sparse: bool = True):
         """
         Initialize the prototype selector.
 
         Args:
             regularization: Entropic OT regularization strength
             similarity_sigma: Gaussian similarity parameter (unused here, placeholder)
-            device: Device for computation ('cuda' or 'cpu')
+            device: Device for computation (defaults to 'cpu')
             use_sparse: Whether to use sparse matrices for computation
         """
         self.reg = regularization
         self.sigma = similarity_sigma
-        self.device = device
+        self.device = 'cpu'  # Force CPU
         self.use_sparse = use_sparse and CUPY_AVAILABLE
 
         self.similarity_matrix = None
