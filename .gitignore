@@ -181,9 +181,6 @@ baselines/tiny-imagenet-200/
 *.tar.gz
 *.tar
 
-# Dataset directories
-datasets/
-data/
 
 # Feature files
 *_features.npz
@@ -199,8 +196,15 @@ data/
 *.log
 logs/
 
-# Plots and results
-plots/
+# Ignore only large or generated files, not code/scripts
+datasets/*_features.npz
+datasets/*.npz
+datasets/*.zip
+datasets/*.tar.gz
+datasets/*.tar
+data/
+plots/*.png
+plots/*.jpg
 results/
 figures/
 
