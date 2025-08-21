@@ -12,6 +12,7 @@ from IPython.display import Markdown, display
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 import json
 from collections import OrderedDict
@@ -20,6 +21,8 @@ from FairOT.datasets.setup_german_data import setup_german_credit_dataset
 from FairOT.datasets.fairness_experiments.setup_all_data import setup_all_datasets
 from baselines.SPOTgreedy import SPOT_GreedySubsetSelection
 
+dedicated_folder = "logs"
+os.makedirs(dedicated_folder, exist_ok=True)
 # Setup all required datasets
 print("Setting up required datasets...")
 setup_all_datasets()
@@ -58,13 +61,13 @@ print("Key: ", dataset_orig.metadata['protected_attribute_maps'][1])
 df['age'].value_counts().plot(kind='bar')
 plt.xlabel("Age (0 = under 25, 1 = over 25)")
 plt.ylabel("Frequency")
-plt.savefig("german_credit_age_distribution.png")
+plt.savefig(os.path.join(dedicated_folder, "german_credit_age_distribution.png"))
 
 print("Key: ", dataset_orig.metadata['label_maps'])
 df['credit'].value_counts().plot(kind='bar')
 plt.xlabel("Credit (1 = Good Credit, 2 = Bad Credit)")
 plt.ylabel("Frequency")
-plt.savefig("german_credit_class_distribution.png")
+plt.savefig(os.path.join(dedicated_folder, "german_credit_class_distribution.png"))
 
 # Import additional required libraries
 import torch
@@ -215,12 +218,11 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
         results['uniform'].append((auc_uniform, dpd_uniform))
 
         # SpotGreedy baseline
-        target_marginal = np.ones(n_prototypes) / n_prototypes
         if isinstance(X, torch.Tensor):
             X_spot = X.cpu().numpy()
         else:
             X_spot = X
-        spotgreedy_indices = SPOT_GreedySubsetSelection(X_spot, target_marginal, n_prototypes)
+        spotgreedy_indices = SPOT_GreedySubsetSelection(X_spot, n_prototypes)
         if isinstance(spotgreedy_indices, torch.Tensor):
             spotgreedy_indices = spotgreedy_indices.cpu().numpy()
         X_spotgreedy = X[spotgreedy_indices]
@@ -259,7 +261,7 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
     plt.title(f'{dataset_name.upper()} Fairness-Utility Tradeoff (Scatter over 100 seeds)')
     plt.grid(True, alpha=0.3)
     plt.legend([labels[0], labels[1], labels[2]])
-    plt.savefig(f"fairness_utility_{dataset_name}_all_baselines_new.png")
+    plt.savefig(os.path.join(dedicated_folder, f"fairness_utility_{dataset_name}_all_baselines_new.png"))
     plt.close()
 
     # Print summary table
@@ -311,7 +313,7 @@ for dataset_name in datasets:
     plt.title(f'{dataset_name.upper()} Fairness-Utility Tradeoff')
     plt.grid(True, alpha=0.3)
     plt.legend()
-    plt.savefig(f"fairness_utility_{dataset_name}_all_baselines.png")
+    plt.savefig(os.path.join(dedicated_folder, f"fairness_utility_{dataset_name}_all_baselines.png"))
     plt.close()
 
 # Print summary table
@@ -328,7 +330,7 @@ for dataset in results:
     print(f"{dataset:<10} {'SpotGreedy':<18} {metrics_spotgreedy['auc_mean']:.4f} {metrics_spotgreedy['dpd_mean']:.4f}")
 
 # Save results to file
-with open("all_datasets_results_fairot_eps.txt", "w") as f:
+with open(os.path.join(dedicated_folder, "all_datasets_results_fairot_eps.txt"), "w") as f:
     f.write("Fairness-Utility Analysis Across Datasets (FairOT epsilon)\n")
     f.write("=" * 50 + "\n\n")
     for dataset in results:
