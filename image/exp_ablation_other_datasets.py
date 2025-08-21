@@ -1,3 +1,117 @@
+def load_cifar100_lt(imbalance_factor=100, max_samples=500):
+    """
+    Load long-tailed CIFAR-100 using exponential profile (Cao et al. 2019).
+    Returns balanced source and long-tailed target splits.
+    """
+    import torchvision
+    import torchvision.transforms as transforms
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))
+    ])
+    trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform)
+    testset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform)
+    X = np.concatenate([trainset.data, testset.data], axis=0)
+    y = np.concatenate([np.array(trainset.targets), np.array(testset.targets)], axis=0)
+    X = X.reshape(X.shape[0], -1)
+    classes = np.unique(y)
+    num_classes = len(classes)
+    # Balanced source
+    samples_per_class = min(max_samples, int(len(y) / num_classes / 2))
+    source_indices = []
+    for cls in classes:
+        cls_idx = np.where(y == cls)[0]
+        selected = np.random.choice(cls_idx, size=samples_per_class, replace=False)
+        source_indices.extend(selected)
+    source_indices = np.array(source_indices)
+    source_X, source_y = X[source_indices], y[source_indices]
+    # Long-tailed target
+    target_indices = []
+    max_target = max_samples
+    img_per_class = []
+    for i in range(num_classes):
+        n = int(max_target * (imbalance_factor ** (-i / (num_classes - 1))))
+        img_per_class.append(n)
+    for cls, n in zip(classes, img_per_class):
+        cls_idx = np.where(y == cls)[0]
+        cls_idx = np.setdiff1d(cls_idx, source_indices)
+        if len(cls_idx) >= n:
+            selected = np.random.choice(cls_idx, size=n, replace=False)
+        else:
+            selected = cls_idx
+        target_indices.extend(selected)
+    target_indices = np.array(target_indices)
+    target_pool_X, target_pool_y = X[target_indices], y[target_indices]
+    return (source_X, source_y), (target_pool_X, target_pool_y)
+
+def load_imagenet_lt():
+    """
+    Load ImageNet-LT features and labels. Assumes pre-extracted features available.
+    Returns balanced source and long-tailed target splits.
+    """
+    # Placeholder: Replace with actual loading code for ImageNet-LT features
+    # Example: features = np.load('imagenet_lt_features.npy'); labels = np.load('imagenet_lt_labels.npy')
+    print("ImageNet-LT loading not implemented. Please provide pre-extracted features and labels.")
+    return None, None
+
+def load_inaturalist_lt():
+    """
+    Load iNaturalist-LT features and labels. Assumes pre-extracted features available.
+    Returns balanced source and long-tailed target splits.
+    """
+    # Placeholder: Replace with actual loading code for iNaturalist-LT features
+    print("iNaturalist-LT loading not implemented. Please provide pre-extracted features and labels.")
+    return None, None
+def load_cifar_lt():
+    """
+    Load CIFAR-LT (long-tailed) dataset and return balanced source and long-tailed target splits.
+    Returns:
+        (source_X, source_y), (target_pool_X, target_pool_y)
+    """
+    import torchvision
+    import torchvision.transforms as transforms
+    # Download CIFAR-10
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+    X = np.concatenate([trainset.data, testset.data], axis=0)
+    y = np.concatenate([np.array(trainset.targets), np.array(testset.targets)], axis=0)
+    # Flatten images
+    X = X.reshape(X.shape[0], -1)
+    # Balanced source: equal samples per class
+    classes = np.unique(y)
+    samples_per_class = 500  # 5000 total for 10 classes
+    source_indices = []
+    for cls in classes:
+        cls_idx = np.where(y == cls)[0]
+        selected = np.random.choice(cls_idx, size=samples_per_class, replace=False)
+        source_indices.extend(selected)
+    source_indices = np.array(source_indices)
+    source_X, source_y = X[source_indices], y[source_indices]
+    # Long-tailed target: exponential decay
+    target_indices = []
+    max_target = 1000
+    imbalance_factor = 50
+    num_classes = len(classes)
+    img_per_class = []
+    for i in range(num_classes):
+        n = int(max_target * (imbalance_factor ** (-i / (num_classes - 1))))
+        img_per_class.append(n)
+    for cls, n in zip(classes, img_per_class):
+        cls_idx = np.where(y == cls)[0]
+        # Remove source indices
+        cls_idx = np.setdiff1d(cls_idx, source_indices)
+        if len(cls_idx) >= n:
+            selected = np.random.choice(cls_idx, size=n, replace=False)
+        else:
+            selected = cls_idx
+        target_indices.extend(selected)
+    target_indices = np.array(target_indices)
+    target_pool_X, target_pool_y = X[target_indices], y[target_indices]
+    return (source_X, source_y), (target_pool_X, target_pool_y)
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
@@ -1253,36 +1367,48 @@ def generate_ablation_target_set_other(pool_X, pool_y, minority_class, total_siz
     return pool_X[target_indices], pool_y[target_indices]
 
 if __name__ == "__main__":
-    datasets = [
-        ("adult", 1),   # minority_class=1 (change as needed)
-        ("crime", 1),   # minority_class=1 (change as needed)
-        ("drug", 1),    # minority_class=1 (change as needed)
-        ("credit", 1),  # minority_class=1 (change as needed)
+    experiment_datasets = [
+        ("mnist", 0),
+        ("cifar100lt", 0),
+        ("imagenetlt", 0),
+        ("inaturalistlt", 0),
     ]
-    for dataset_name, minority_class in datasets:
+    for dataset_name, minority_class in experiment_datasets:
         print(f"\n{'='*80}")
         print(f"Running ablation experiment for {dataset_name.upper()} (minority class: {minority_class})")
         print(f"{'='*80}")
-        dataset_result = data.load_dataset(dataset_name)
-        if dataset_result is None:
-            print(f"Failed to load {dataset_name} dataset")
-            continue
-        (source_X, source_y), (target_pool_X, target_pool_y) = dataset_result
-        scaler = StandardScaler()
-        source_X = scaler.fit_transform(source_X.astype(np.float32))
-        target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
-        source_X, source_y = balance_source_set(source_X, source_y, target_total_size=5000)
-        target_X, target_y = generate_ablation_target_set_other(target_pool_X, target_pool_y, minority_class=minority_class, total_size=2000)
+        if dataset_name == "cifar100lt":
+            (source_X, source_y), (target_pool_X, target_pool_y) = load_cifar100_lt()
+        elif dataset_name == "imagenetlt":
+            result = load_imagenet_lt()
+            if result is None:
+                print("ImageNet-LT data not available.")
+                continue
+            (source_X, source_y), (target_pool_X, target_pool_y) = result
+        elif dataset_name == "inaturalistlt":
+            result = load_inaturalist_lt()
+            if result is None:
+                print("iNaturalist-LT data not available.")
+                continue
+            (source_X, source_y), (target_pool_X, target_pool_y) = result
+        else:
+            dataset_result = data.load_dataset(dataset_name)
+            if dataset_result is None:
+                print(f"Failed to load {dataset_name} dataset")
+                continue
+            (source_X, source_y), (target_pool_X, target_pool_y) = dataset_result
+            scaler = StandardScaler()
+            source_X = scaler.fit_transform(source_X.astype(np.float32))
+            target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
+            source_X, source_y = balance_source_set(source_X, source_y, target_total_size=5000)
+        # Long-tailed target set (for MNIST, use existing function)
+        if dataset_name == "mnist":
+            target_X, target_y = generate_ablation_target_set_other(target_pool_X, target_pool_y, minority_class=minority_class, total_size=2000)
+        else:
+            target_X, target_y = target_pool_X, target_pool_y
         plot_source_target_histograms(source_y, target_y, dataset_name, experiment_type='ablation')
+        # Model training (ResNet-32 for CIFAR-100, ResNet-50 for ImageNet/iNaturalist)
         # ...run your ablation experiments and evaluation as needed...
-        scaler = StandardScaler()
-        source_X = scaler.fit_transform(source_X.astype(np.float32))
-        target_pool_X = scaler.transform(target_pool_X.astype(np.float32))
-        source_X, source_y = balance_source_set(source_X, source_y, target_total_size=5000)
-        target_X, target_y = generate_ablation_target_set_other(target_pool_X, target_pool_y, minority_class=minority_class, total_size=2000)
-        plot_source_target_histograms(source_y, target_y, dataset_name, experiment_type='ablation')
-        # ...run your ablation experiments and evaluation as needed...
-    print(f"Saved source/target distribution plot: {filepath}")
 
 def plot_prototype_distribution_histogram(prototypes_y, dataset_name, method, proto_count):
     """
