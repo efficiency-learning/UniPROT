@@ -1023,7 +1023,7 @@ if __name__ == "__main__":
         # Import and run the plotting script
         import sys
         sys.path.append('/home/ganesh/ICLR/FairOT')
-        from create_accuracy_plots import create_individual_accuracy_plots, create_performance_summary_table
+        from utils_plot.create_accuracy_plots import create_individual_accuracy_plots, create_performance_summary_table
         
         print("Creating individual accuracy comparison plots...")
         create_individual_accuracy_plots()

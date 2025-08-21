@@ -99,7 +99,7 @@ y_torch = torch.from_numpy(y).long()
 protected_torch = torch.from_numpy(protected).long()
 
 # Initialize FairOT
-fair_ot = FairOptimalTransport(regularization=0.01, device='cpu')
+fair_ot = FairOptimalTransport(regularization=0.01)
 
 # Compute similarity matrix
 sims = torch.mm(X_torch, X_torch.t())

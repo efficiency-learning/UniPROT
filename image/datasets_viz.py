@@ -9,7 +9,7 @@ import sys
 
 # Add UCI datasets path to system path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from FairOT.datasets.uci_datasets import load_communities_crime
+from FairOT.datasets.fairness_experiments.uci_datasets import load_communities_crime
 
 def load_and_process_datasets():
     """Load all datasets and process them for visualization"""
