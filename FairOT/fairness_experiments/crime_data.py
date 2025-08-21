@@ -97,7 +97,7 @@ sensitive_full = sensitive_attr.loc[df.index]
 sensitive_torch = torch.from_numpy(sensitive_sub.values).long()
 
 # Initialize FairOT (CPU only)
-fair_ot = FairOptimalTransport(regularization=0.01, device='cpu')
+fair_ot = FairOptimalTransport(regularization=0.01)
 
 # ---------------------------
 # 7. FairOT Selection

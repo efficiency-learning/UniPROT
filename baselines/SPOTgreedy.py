@@ -1,82 +1,65 @@
-import torch
+import numpy as np
+import scipy
+from scipy import sparse
 import time
 
+def SPOT_GreedySubsetSelection(C, targetMarginal, m):
+    # Assumes one source point selected at a time, which simplifies the code.
+    # C: Cost matrix of OT: number of source x number of target points {[numY * numX]}
+    # targetMarginal: 1 x number of target (row-vector) size histogram of target distribution. Non negative entries summing to 1 {[1*numX]}
+    # m: number of prototypes to be selected.
 
-def SPOT_GreedySubsetSelection(C, target_marginal, m):
-    """
-    Greedy subset selection for OT prototype selection using PyTorch.
+    targetMarginal = targetMarginal / np.sum(targetMarginal)
+    numY = C.shape[0]
+    numX = C.shape[1]
+        # Fix targetMarginal shape if needed
+    if targetMarginal.size != numX:
+        print(f"Warning: targetMarginal size {targetMarginal.size} does not match numX {numX}. Auto-fixing.")
+        targetMarginal = np.ones(numX) / numX
+    print(f"Number of sources (Y): {numY}, Number of targets (X): {numX}")
+    allY = np.arange(numY)
+    # just to make sure we have a row vector.
+    targetMarginal = targetMarginal.reshape(1, numX)
 
-    Args:
-        C (torch.Tensor): Cost matrix of shape (num_sources, num_targets), device-aware.
-        target_marginal (torch.Tensor): Row vector of target distribution (1D or 2D shape), non-negative, sums to 1.
-        m (int): Number of prototypes to select.
-
-    Returns:
-        torch.Tensor: Indices of selected prototypes, shape (m,)
-    """
-    device = C.device
-    target_marginal = target_marginal / target_marginal.sum()
-    target_marginal = target_marginal.view(1, -1)  # Ensure shape (1, num_targets)
-
-    num_sources, num_targets = C.shape
-
-    selected_indices = torch.zeros(m, dtype=torch.long, device=device)
-    min_costs = torch.full((1, num_targets), 1e6, device=device)
-    min_source_indices = torch.zeros((1, num_targets), dtype=torch.long, device=device)
-
-    all_sources = torch.arange(num_sources, device=device)
-    chosen_set = set()
-
-    start_time = time.time()
-    for step in range(m):
-        mask = torch.tensor([i not in chosen_set for i in all_sources.tolist()], device=device)
-        remaining_sources = all_sources[mask]
-
-        # Compute gain for each remaining source
-        gain_matrix = torch.clamp(min_costs - C, min=0.0)
-        gain = gain_matrix @ target_marginal.t()  # Shape: (num_sources, 1)
-        gain_values = gain[remaining_sources]
-
-        best_idx = torch.argmax(gain_values)
-        chosen = remaining_sources[best_idx]
-        selected_indices[step] = chosen
-        chosen_set.add(chosen.item())
-
-        # Update min_costs and corresponding indices
-        better_mask = (min_costs - C[chosen, :]) > 0
-        min_costs[0, better_mask[0]] = C[chosen, better_mask[0]]
-        min_source_indices[0, better_mask[0]] = step
-
-    # log_final_transport_plan(min_source_indices, target_marginal, m, num_targets)
-
-    elapsed = time.time() - start_time
-    # print("Selected indices:", selected_indices)
-    # print("Total time:", elapsed, "seconds")
-    return selected_indices
-
-
-def log_final_transport_plan(min_source_indices, target_marginal, m, num_targets):
-    """
-    Construct and log the optimal transport plan gammaOpt and its marginals.
-
-    Args:
-        min_source_indices (torch.Tensor): Shape (1, num_targets), index of selected prototype per target.
-        target_marginal (torch.Tensor): Shape (1, num_targets), marginal over targets.
-        m (int): Number of prototypes.
-        num_targets (int): Number of target points.
-    """
-    print("targetMarginal:\n", target_marginal)
-
-    row_indices = min_source_indices[0]  # shape: (num_targets,)
-    col_indices = torch.arange(num_targets, device=target_marginal.device)
-    values = target_marginal[0]
-
-    gamma_opt = torch.sparse_coo_tensor(
-        indices=torch.stack([row_indices, col_indices]),
-        values=values,
-        size=(m, num_targets)
-    )
-    print("gammaOpt (sparse):\n", gamma_opt)
-
-    curr_opt_w = torch.sparse.sum(gamma_opt, dim=1).to_dense().flatten()
-    print("currOptw:\n", curr_opt_w)
+    # Intialization
+    S = np.zeros((1, m), dtype=int)
+    timeTaken = np.zeros((1, m), dtype=int)
+    setValues = np.zeros((1, m), dtype=int)
+    sizeS = 0
+    currOptw = []
+    currMinCostValues = np.ones((1, numX)) * 1000000
+    currMinSourceIndex = np.zeros((1, numX), dtype=int)
+    remainingElements = allY.copy()
+    chosenElements = []
+    iterNum = 0
+    start = time.time()
+    while sizeS < m:
+        iterNum += 1
+        remainingElements = remainingElements[~np.in1d(remainingElements, np.array(chosenElements))]
+        temp1 = np.maximum(currMinCostValues - C, 0)
+        temp1 = np.matmul(temp1, targetMarginal.T)
+        incrementValues = temp1[remainingElements]
+        maxIncrementIndex = np.argmax(incrementValues)
+        # Choosing the best element
+        chosenElement = remainingElements[maxIncrementIndex]
+        chosenElements.append(chosenElement)
+        S[0][sizeS] = chosenElement
+        # Update currMinCostValues and currMinSourceIndex vectors
+        tempIndex = (currMinCostValues - C[chosenElement, :]) > 0
+        D = C[chosenElement]
+        currMinCostValues[0, tempIndex[0]] = D[tempIndex[0]]
+        currMinSourceIndex[0, tempIndex[0]] = sizeS
+        # Current objective and other booking
+        currObjectiveValue = np.sum(np.dot(currMinCostValues, targetMarginal.T))
+        setValues[0][sizeS] = currObjectiveValue
+        if sizeS == m-1:
+            print("targetMarginal", targetMarginal)
+            gammaOpt = sparse.csr_matrix((targetMarginal[0], (currMinSourceIndex[0], range(0, numX))), shape=(m, numX))
+            print("gammaOpt \n", gammaOpt)
+            currOptw = np.sum(gammaOpt, axis=1).flatten()
+            print("currOptw \n", currOptw)
+        sizeS += 1
+    end = time.time()
+    print("S : ", S)
+    print("Time : ", end - start)
+    return S[0]

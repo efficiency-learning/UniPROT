@@ -23,32 +23,32 @@ except ImportError:
     cp_sparse = None
 
 class FairOptimalTransport:
-    def __init__(self, regularization: float = 0.05, similarity_sigma: float = 1.0, device: str = 'cpu', use_sparse: bool = True):
+    def __init__(self, regularization: float = 0.05, similarity_sigma: float = 1.0, use_sparse: bool = True):
         """
         Initialize the prototype selector.
 
         Args:
             regularization: Entropic OT regularization strength
             similarity_sigma: Gaussian similarity parameter (unused here, placeholder)
-            device: Device for computation (defaults to 'cpu')
             use_sparse: Whether to use sparse matrices for computation
         """
         self.reg = regularization
         self.sigma = similarity_sigma
-        self.device = 'cpu'  # Force CPU
         self.use_sparse = use_sparse and CUPY_AVAILABLE
 
         self.similarity_matrix = None
         self.similarity_matrix_sparse = None
         self.num_examples = None
-        self.ot_solver = pot_partial_library_sparse if self.use_sparse else pot_partial_library
-        #print(f"Using {'sparse' if self.use_sparse else 'dense'} OT solver on {self.device}")
+        self.ot_solver = pot_partial_library
+    #print(f"Using {'sparse' if self.use_sparse else 'dense'} OT solver")
 
     def prototype_selection(
         self,
         similarity_matrix,
         num_prototypes: int,
-        method: str = 'approx'
+    method: str = 'approx',
+    stochastic_frac: Optional[float] = None,  # Add stochastic fraction argument
+    epsilon: Optional[float] = None  # Add epsilon argument
     ) -> Tuple[List[int], List[float]]:
         # Accepts torch.Tensor, numpy, or cupy arrays
         if self.use_sparse and CUPY_AVAILABLE:
@@ -58,7 +58,7 @@ class FairOptimalTransport:
             self.similarity_matrix = similarity_matrix
             self.num_examples = similarity_matrix.shape[0]
         elif isinstance(similarity_matrix, torch.Tensor):
-            self.similarity_matrix = similarity_matrix.to(self.device)
+            self.similarity_matrix = similarity_matrix.cpu()
             self.num_examples = similarity_matrix.size(0)
         elif isinstance(similarity_matrix, np.ndarray):
             self.similarity_matrix = similarity_matrix
@@ -69,7 +69,7 @@ class FairOptimalTransport:
         if method == 'exact':
             return self._greedy_selection_exact(num_prototypes)
         elif method == 'approx':
-            return self._greedy_selection_approx(num_prototypes)
+            return self._greedy_selection_approx(num_prototypes, stochastic_frac=stochastic_frac, epsilon=epsilon)
         else:
             raise ValueError(f"Unknown method: {method}. Choose 'approx' or 'exact'.")
 
@@ -133,11 +133,15 @@ class FairOptimalTransport:
         obj_values_actual.append(obj_P)
         
         return P_actual, obj_values_actual
-    def _greedy_selection_approx(self, k: int) -> Tuple[List[int], List[float]]:
-        """Greedy selection with approximate gain computation."""
+    def _greedy_selection_approx(self, k: int, stochastic_frac: Optional[float] = None, epsilon: Optional[float] = None) -> Tuple[List[int], List[float]]:
+        """
+        Greedy selection with approximate gain computation.
+        Supports stochastic candidate selection:
+        If epsilon is provided, at each step, sample Ri ⊆ S \ si−1 with n*k*log(1/epsilon) elements.
+        Otherwise, falls back to stochastic_frac or full search.
+        """
         import time
-        
-        #print("Running approx-gain greedy (library)...")
+
         P_approx_lib = []
         obj_values_approx_lib = []
         gamma_P = None
@@ -147,36 +151,31 @@ class FairOptimalTransport:
             S = self.similarity_matrix.cpu().numpy()
         else:
             S = self.similarity_matrix
-        
-        n = S.shape[1]  # number of target samples
-        m = S.shape[0]  # number of source samples
+
+        n = S.shape[1]
+        m = S.shape[0]
         mu_T = k * np.ones(n) / n
 
-        sorted_indices_all = np.argsort(-S, axis=1)  # Sort indices for all rows of S
-        sorted_S_all = np.take_along_axis(S, sorted_indices_all, axis=1)  # Sort S along rows
-        #print("All of S is sorted")
-        
-        for step in tqdm(range(k), desc="Approx greedy selection"):
-            #start_time = time.time()
+        sorted_indices_all = np.argsort(-S, axis=1)
+        sorted_S_all = np.take_along_axis(S, sorted_indices_all, axis=1)
 
+        for step in tqdm(range(k), desc="Approx greedy selection"):
             if len(P_approx_lib) == 0:
                 gamma_P = None
                 obj_P = 0.0
             else:
                 S_P = S[np.ix_(P_approx_lib, range(n))]
                 mu_P = np.ones(len(P_approx_lib)) / len(P_approx_lib)
-                #print("POT library called \n")
                 gamma_P, obj_P = self.ot_solver(S_P, k, mu_P, self.reg)
                 if isinstance(obj_P, torch.Tensor):
                     obj_P = obj_P.item()
-                ##print(f"Objective val for current proto at step {step}", obj_P)
-            
+
             obj_values_approx_lib.append(obj_P)
             best_gain = -np.inf
             best_v = None
-            
+
             if gamma_P is None:
-                col_sums = np.zeros(n)  # Initialize col_sums to zeros if gamma_P is None
+                col_sums = np.zeros(n)
             else:
                 if isinstance(gamma_P, torch.Tensor):
                     gamma_P = gamma_P.cpu().numpy()
@@ -185,47 +184,52 @@ class FairOptimalTransport:
             b = mu_T - col_sums
             b = np.clip(b, 0, None)
 
-            # Fix: Optimize the loop over source candidates, not target
-            candidates = np.asarray(list(set(range(m)) - set(P_approx_lib)))  # Convert to numpy array
+            candidates = np.asarray(list(set(range(m)) - set(P_approx_lib)))
+
+            # --- Stochastic candidate selection using epsilon ---
+            if epsilon is not None:
+                subset_size = max(1, int((m / k) * np.log(1 / epsilon)))
+                if len(candidates) > subset_size:
+                    candidates = np.random.choice(candidates, size=subset_size, replace=False)
+                print(f"Stochastic candidate search space (epsilon={epsilon}): {len(candidates)}")
+            elif stochastic_frac is not None and stochastic_frac < 1.0:
+                n_stochastic = max(1, int(len(candidates) * stochastic_frac))
+                candidates = np.random.choice(candidates, size=n_stochastic, replace=False)
+                print(f"Stochastic candidate search space: {len(candidates)} (fraction={stochastic_frac})")
+            else:
+                print(f"Total candidate search space: {len(candidates)}")
+
             if len(candidates) == 0:
                 print("True: candidates not available")
-                break  # No more candidates available
-                
-            # Ensure arrays are numpy arrays
-            sorted_indices_candidates = sorted_indices_all[candidates]  # Index with numpy array
-            sorted_S_candidates = sorted_S_all[candidates]  # Index with numpy array
+                break
+
+            sorted_indices_candidates = sorted_indices_all[candidates]
+            sorted_S_candidates = sorted_S_all[candidates]
 
             def compute_single_gain(args):
                 i, v = args
                 return self._approx_gain(P_approx_lib, gamma_P, v, S, sorted_S_candidates[i], sorted_indices_candidates[i], b, k, self.reg)
 
-            # Vectorized computation of approximate gains for all candidates
             start_time = time.time()
-
-            print(f"Total candidate search space", len(candidates))
-            with ThreadPoolExecutor(max_workers=8) as executor:  # Limit workers to reduce overhead
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=8) as executor:
                 gains = list(executor.map(compute_single_gain, enumerate(candidates)))
-
             end_time = time.time()
-
             print(f"Approx gain outer iterations in {end_time - start_time:.4f} seconds")
 
-            # Select the best candidate
             best_gain_idx = np.argmax(gains)
             best_gain = gains[best_gain_idx]
             best_v = candidates[best_gain_idx]
 
             P_approx_lib.append(best_v)
 
-
-        # Final objective
         S_P = S[np.ix_(P_approx_lib, range(n))]
         mu_P = np.ones(len(P_approx_lib)) / len(P_approx_lib)
         _, obj_P = self.ot_solver(S_P, k, mu_P, self.reg)
         if isinstance(obj_P, torch.Tensor):
             obj_P = obj_P.item()
         obj_values_approx_lib.append(obj_P)
-        
+
         return P_approx_lib, obj_values_approx_lib
         
 
