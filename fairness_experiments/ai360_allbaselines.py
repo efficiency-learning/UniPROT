@@ -17,8 +17,8 @@ import os
 import json
 from collections import OrderedDict
 
-from FairOT.datasets.setup_german_data import setup_german_credit_dataset
-from FairOT.datasets.fairness_experiments.setup_all_data import setup_all_datasets
+from fairness_experiments.setup_german_data import setup_german_credit_dataset
+from fairness_experiments.setup_all_data import setup_all_datasets
 from baselines.SPOTgreedy import SPOT_GreedySubsetSelection
 
 dedicated_folder = "logs"
@@ -146,40 +146,25 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
     
     # Run each baseline for 100 seeds and collect results
     n_runs = 100
-    seeds = list(range(42, 142))  # 100 unique seeds for robust evaluation
-    results = {'fairot_eps': [], 'uniform': [], 'spotgreedy': []}
+    seeds = list(range(42, 44))  # 100 unique seeds for robust evaluation
+    results = {'fairot_eps': [], 'uniform': [], 'spotgreedy': [], 'fairlet': [], 'kmedians': [], 'kmeans': []}
 
-    def train_evaluate_mlp(X_train, y_train, X_test, y_test, protected_test, hidden_dim=64, epochs=30):
-        device = torch.device('cpu')
-        X_train = torch.from_numpy(X_train).float().to(device)
-        y_train = torch.from_numpy(y_train).long().to(device)
-        X_test = torch.from_numpy(X_test).float().to(device)
-        y_test = torch.from_numpy(y_test).long().to(device)
-        model = nn.Sequential(
-            nn.Linear(X_train.shape[1], hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, 2)
-        )
-        optimizer = optim.Adam(model.parameters())
-        criterion = nn.CrossEntropyLoss()
-        for epoch in range(epochs):
-            model.train()
-            optimizer.zero_grad()
-            logits = model(X_train)
-            loss = criterion(logits, y_train)
-            loss.backward()
-            optimizer.step()
-        model.eval()
-        with torch.no_grad():
-            logits = model(X_test)
-            probs = torch.softmax(logits, dim=1)[:, 1].numpy()
-            preds = (probs > 0.5).astype(int)
-            auc = roc_auc_score(y_test.numpy(), probs)
-            p1 = preds[protected_test == 1].mean()
-            p0 = preds[protected_test == 0].mean()
-            dpd = abs(p1 - p0)
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.metrics import roc_auc_score
+    def train_evaluate_1nn(X_train, y_train, X_test, y_test, protected_test):
+        clf = KNeighborsClassifier(n_neighbors=1)
+        clf.fit(X_train, y_train)
+        preds = clf.predict(X_test)
+        # For binary classification, get probabilities for AUC
+        if hasattr(clf, "predict_proba"):
+            probs = clf.predict_proba(X_test)[:, 1]
+        else:
+            # fallback: use predictions as probabilities
+            probs = preds
+        auc = roc_auc_score(y_test, probs)
+        p1 = preds[protected_test == 1].mean() if np.any(protected_test == 1) else 0.0
+        p0 = preds[protected_test == 0].mean() if np.any(protected_test == 0) else 0.0
+        dpd = abs(p1 - p0)
         return auc, dpd
 
     for run_idx, seed in enumerate(seeds):
@@ -203,7 +188,7 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
         X_train, X_test, y_train, y_test, prot_train, prot_test = train_test_split(
             X_fairot, y_fairot, protected_fairot, test_size=0.3, random_state=seed, stratify=y_fairot
         )
-        auc_fairot_eps, dpd_fairot_eps = train_evaluate_mlp(X_train, y_train, X_test, y_test, prot_test)
+        auc_fairot_eps, dpd_fairot_eps = train_evaluate_1nn(X_train, y_train, X_test, y_test, prot_test)
         results['fairot_eps'].append((auc_fairot_eps, dpd_fairot_eps))
 
         # Uniform baseline
@@ -214,7 +199,7 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
         X_train_u, X_test_u, y_train_u, y_test_u, prot_train_u, prot_test_u = train_test_split(
             X_uniform, y_uniform, protected_uniform, test_size=0.3, random_state=seed, stratify=y_uniform
         )
-        auc_uniform, dpd_uniform = train_evaluate_mlp(X_train_u, y_train_u, X_test_u, y_test_u, prot_test_u)
+        auc_uniform, dpd_uniform = train_evaluate_1nn(X_train_u, y_train_u, X_test_u, y_test_u, prot_test_u)
         results['uniform'].append((auc_uniform, dpd_uniform))
 
         # SpotGreedy baseline
@@ -231,8 +216,58 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
         X_train_s, X_test_s, y_train_s, y_test_s, prot_train_s, prot_test_s = train_test_split(
             X_spotgreedy, y_spotgreedy, protected_spotgreedy, test_size=0.3, random_state=seed, stratify=y_spotgreedy
         )
-        auc_spotgreedy, dpd_spotgreedy = train_evaluate_mlp(X_train_s, y_train_s, X_test_s, y_test_s, prot_test_s)
+        auc_spotgreedy, dpd_spotgreedy = train_evaluate_1nn(X_train_s, y_train_s, X_test_s, y_test_s, prot_test_s)
         results['spotgreedy'].append((auc_spotgreedy, dpd_spotgreedy))
+
+        # Fairlet baseline using fairTree
+        from fairness_experiments.fairTree import fairlet_prototype_selection
+        fairlet_indices = fairlet_prototype_selection(X, y, protected, n_prototypes, seed)
+        X_fairlet = X[fairlet_indices]
+        y_fairlet = y[fairlet_indices]
+        protected_fairlet = protected[fairlet_indices]
+        X_train_f, X_test_f, y_train_f, y_test_f, prot_train_f, prot_test_f = train_test_split(
+            X_fairlet, y_fairlet, protected_fairlet, test_size=0.3, random_state=seed, stratify=y_fairlet
+        )
+        auc_fairlet, dpd_fairlet = train_evaluate_1nn(X_train_f, y_train_f, X_test_f, y_test_f, prot_test_f)
+        results['fairlet'].append((auc_fairlet, dpd_fairlet))
+
+        # K-Medians baseline
+        try:
+            from sklearn_extra.cluster import KMedoids
+            kmedians = KMedoids(n_clusters=n_prototypes, method='alternate', random_state=seed)
+            kmedians.fit(X)
+            kmedians_indices = kmedians.medoid_indices_
+            X_kmedians = X[kmedians_indices]
+            y_kmedians = y[kmedians_indices]
+            protected_kmedians = protected[kmedians_indices]
+            X_train_km, X_test_km, y_train_km, y_test_km, prot_train_km, prot_test_km = train_test_split(
+                X_kmedians, y_kmedians, protected_kmedians, test_size=0.3, random_state=seed, stratify=y_kmedians
+            )
+            auc_kmedians, dpd_kmedians = train_evaluate_1nn(X_train_km, y_train_km, X_test_km, y_test_km, prot_test_km)
+            results['kmedians'].append((auc_kmedians, dpd_kmedians))
+        except ImportError:
+            results['kmedians'].append((0.0, 0.0))
+
+        # K-Means baseline
+        from sklearn.cluster import KMeans
+        kmeans = KMeans(n_clusters=n_prototypes, random_state=seed)
+        kmeans.fit(X)
+        kmeans_indices = []
+        for i in range(n_prototypes):
+            cluster_points = np.where(kmeans.labels_ == i)[0]
+            if len(cluster_points) > 0:
+                centroid = kmeans.cluster_centers_[i]
+                closest = cluster_points[np.argmin(np.linalg.norm(X[cluster_points] - centroid, axis=1))]
+                kmeans_indices.append(closest)
+        kmeans_indices = np.array(kmeans_indices)
+        X_kmeans = X[kmeans_indices]
+        y_kmeans = y[kmeans_indices]
+        protected_kmeans = protected[kmeans_indices]
+        X_train_kmeans, X_test_kmeans, y_train_kmeans, y_test_kmeans, prot_train_kmeans, prot_test_kmeans = train_test_split(
+            X_kmeans, y_kmeans, protected_kmeans, test_size=0.3, random_state=seed, stratify=y_kmeans
+        )
+        auc_kmeans, dpd_kmeans = train_evaluate_1nn(X_train_kmeans, y_train_kmeans, X_test_kmeans, y_test_kmeans, prot_test_kmeans)
+        results['kmeans'].append((auc_kmeans, dpd_kmeans))
 
     # Compute mean and variance for each baseline
     summary = {}
@@ -249,9 +284,9 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
 
     # Plot mean and variance (shaded region)
     plt.figure(figsize=(6, 6))
-    colors = ['purple', 'blue', 'green']
-    labels = ['FairOT (epsilon)', 'Uniform', 'SpotGreedy']
-    for i, key in enumerate(['fairot_eps', 'uniform', 'spotgreedy']):
+    colors = ['purple', 'blue', 'green', 'orange', 'red', 'cyan']
+    labels = ['FairOT (epsilon)', 'Uniform', 'SpotGreedy', 'Fairlet', 'K-Medians', 'K-Means']
+    for i, key in enumerate(['fairot_eps', 'uniform', 'spotgreedy', 'fairlet', 'kmedians', 'kmeans']):
         aucs = [x[0] for x in results[key]]
         dpds = [x[1] for x in results[key]]
         # Plot all individual points for each baseline with same color
@@ -261,7 +296,7 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
     plt.title(f'{dataset_name.upper()} Fairness-Utility Tradeoff (Scatter over 100 seeds)')
     plt.grid(True, alpha=0.3)
     plt.legend([labels[0], labels[1], labels[2]])
-    plt.savefig(os.path.join(dedicated_folder, f"fairness_utility_{dataset_name}_all_baselines_new.png"))
+    plt.savefig(os.path.join(dedicated_folder, f"scatter_fairness_utility_{dataset_name}_all_baselines_new.png"))
     plt.close()
 
     # Print summary table
@@ -269,7 +304,7 @@ def evaluate_dataset(dataset_name, base_prototypes=50):
     print("-" * 50)
     print(f"{'Method':<18} {'AUC':<15} {'DPD':<15}")
     print("-" * 50)
-    for key, label in zip(['fairot_eps', 'uniform', 'spotgreedy'], labels):
+    for key, label in zip(['fairot_eps', 'uniform', 'spotgreedy', 'fairlet', 'kmedians', 'kmeans'], labels):
         auc_mean = summary[key]['auc_mean']
         auc_std = summary[key]['auc_std']
         dpd_mean = summary[key]['dpd_mean']
@@ -291,21 +326,27 @@ for dataset_name in datasets:
     # Plot all baselines for individual dataset
     plt.figure(figsize=(6, 6))
     metrics = results[dataset_name]
-    dpds = [metrics['fairot_eps']['dpd_mean'], metrics['uniform']['dpd_mean'], metrics['spotgreedy']['dpd_mean']]
-    aucs = [metrics['fairot_eps']['auc_mean'], metrics['uniform']['auc_mean'], metrics['spotgreedy']['auc_mean']]
-    colors = ['purple', 'blue', 'green']
+    dpds = [metrics['fairot_eps']['dpd_mean'], metrics['uniform']['dpd_mean'], metrics['spotgreedy']['dpd_mean'], metrics['fairlet']['dpd_mean'], metrics['kmedians']['dpd_mean'], metrics['kmeans']['dpd_mean']]
+    aucs = [metrics['fairot_eps']['auc_mean'], metrics['uniform']['auc_mean'], metrics['spotgreedy']['auc_mean'], metrics['fairlet']['auc_mean'], metrics['kmedians']['auc_mean'], metrics['kmeans']['auc_mean']]
+    colors = ['purple', 'blue', 'green', 'orange', 'red', 'cyan']
     # Get prototype counts for legend
     prototype_counts = [
         metrics['fairot_eps']['num_prototypes'],
         metrics['uniform']['num_prototypes'],
-        metrics['spotgreedy']['num_prototypes']
+        metrics['spotgreedy']['num_prototypes'],
+        metrics['fairlet']['num_prototypes'],
+        metrics['kmedians']['num_prototypes'],
+        metrics['kmeans']['num_prototypes']
     ]
     labels = [
         f'FairOT (epsilon) [{prototype_counts[0]}]',
         f'Uniform [{prototype_counts[1]}]',
-        f'SpotGreedy [{prototype_counts[2]}]'
+        f'SpotGreedy [{prototype_counts[2]}]',
+        f'Fairlet [{prototype_counts[3]}]',
+        f'K-Medians [{prototype_counts[4]}]',
+        f'K-Means [{prototype_counts[5]}]'
     ]
-    for i in range(3):
+    for i in range(6):
         plt.scatter(dpds[i], aucs[i], c=colors[i], s=100, label=labels[i])
         plt.annotate(labels[i], (dpds[i], aucs[i]), xytext=(5, 5), textcoords='offset points')
     plt.xlabel('Demographic Parity Difference (lower is better)')
@@ -325,9 +366,15 @@ for dataset in results:
     metrics_fairot = results[dataset]['fairot_eps']
     metrics_uniform = results[dataset]['uniform']
     metrics_spotgreedy = results[dataset]['spotgreedy']
+    metrics_fairlet = results[dataset]['fairlet']
+    metrics_kmedians = results[dataset]['kmedians']
+    metrics_kmeans = results[dataset]['kmeans']
     print(f"{dataset:<10} {'FairOT (epsilon)':<18} {metrics_fairot['auc_mean']:.4f} {metrics_fairot['dpd_mean']:.4f}")
     print(f"{dataset:<10} {'Uniform':<18} {metrics_uniform['auc_mean']:.4f} {metrics_uniform['dpd_mean']:.4f}")
     print(f"{dataset:<10} {'SpotGreedy':<18} {metrics_spotgreedy['auc_mean']:.4f} {metrics_spotgreedy['dpd_mean']:.4f}")
+    print(f"{dataset:<10} {'Fairlet':<18} {metrics_fairlet['auc_mean']:.4f} {metrics_fairlet['dpd_mean']:.4f}")
+    print(f"{dataset:<10} {'K-Medians':<18} {metrics_kmedians['auc_mean']:.4f} {metrics_kmedians['dpd_mean']:.4f}")
+    print(f"{dataset:<10} {'K-Means':<18} {metrics_kmeans['auc_mean']:.4f} {metrics_kmeans['dpd_mean']:.4f}")
 
 # Save results to file
 with open(os.path.join(dedicated_folder, "all_datasets_results_fairot_eps.txt"), "w") as f:
@@ -336,18 +383,33 @@ with open(os.path.join(dedicated_folder, "all_datasets_results_fairot_eps.txt"),
     for dataset in results:
         f.write(f"\n{dataset.upper()} Dataset:\n")
         f.write("-" * 20 + "\n")
-        metrics_fairot = results[dataset]['fairot_eps']
-        metrics_uniform = results[dataset]['uniform']
-        metrics_spotgreedy = results[dataset]['spotgreedy']
-        f.write(f"FairOT (epsilon):\n")
-        f.write(f"  AUC: {metrics_fairot['auc_mean']:.4f}\n")
-        f.write(f"  DPD: {metrics_fairot['dpd_mean']:.4f}\n")
-        f.write(f"  num_prototypes: {metrics_fairot['num_prototypes']}\n")
-        f.write(f"Uniform Selection:\n")
-        f.write(f"  AUC: {metrics_uniform['auc_mean']:.4f}\n")
-        f.write(f"  DPD: {metrics_uniform['dpd_mean']:.4f}\n")
-        f.write(f" num_prototypes: {metrics_uniform['num_prototypes']}\n")
-        f.write(f"SpotGreedy Selection:\n")
-        f.write(f"  AUC: {metrics_spotgreedy['auc_mean']:.4f}\n")
-        f.write(f"  DPD: {metrics_spotgreedy['dpd_mean']:.4f}\n")
-        f.write(f" num_prototypes: {metrics_spotgreedy['num_prototypes']}\n")
+    metrics_fairot = results[dataset]['fairot_eps']
+    metrics_uniform = results[dataset]['uniform']
+    metrics_spotgreedy = results[dataset]['spotgreedy']
+    metrics_fairlet = results[dataset]['fairlet']
+    metrics_kmedians = results[dataset]['kmedians']
+    metrics_kmeans = results[dataset]['kmeans']
+    f.write(f"FairOT (epsilon):\n")
+    f.write(f"  AUC: {metrics_fairot['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_fairot['dpd_mean']:.4f}\n")
+    f.write(f"  num_prototypes: {metrics_fairot['num_prototypes']}\n")
+    f.write(f"Uniform Selection:\n")
+    f.write(f"  AUC: {metrics_uniform['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_uniform['dpd_mean']:.4f}\n")
+    f.write(f" num_prototypes: {metrics_uniform['num_prototypes']}\n")
+    f.write(f"SpotGreedy Selection:\n")
+    f.write(f"  AUC: {metrics_spotgreedy['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_spotgreedy['dpd_mean']:.4f}\n")
+    f.write(f" num_prototypes: {metrics_spotgreedy['num_prototypes']}\n")
+    f.write(f"Fairlet Selection:\n")
+    f.write(f"  AUC: {metrics_fairlet['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_fairlet['dpd_mean']:.4f}\n")
+    f.write(f" num_prototypes: {metrics_fairlet['num_prototypes']}\n")
+    f.write(f"K-Medians Selection:\n")
+    f.write(f"  AUC: {metrics_kmedians['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_kmedians['dpd_mean']:.4f}\n")
+    f.write(f" num_prototypes: {metrics_kmedians['num_prototypes']}\n")
+    f.write(f"K-Means Selection:\n")
+    f.write(f"  AUC: {metrics_kmeans['auc_mean']:.4f}\n")
+    f.write(f"  DPD: {metrics_kmeans['dpd_mean']:.4f}\n")
+    f.write(f" num_prototypes: {metrics_kmeans['num_prototypes']}\n")

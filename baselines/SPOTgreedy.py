@@ -3,19 +3,18 @@ import scipy
 from scipy import sparse
 import time
 
-def SPOT_GreedySubsetSelection(C, targetMarginal, m):
+def SPOT_GreedySubsetSelection(C, m):
     # Assumes one source point selected at a time, which simplifies the code.
     # C: Cost matrix of OT: number of source x number of target points {[numY * numX]}
     # targetMarginal: 1 x number of target (row-vector) size histogram of target distribution. Non negative entries summing to 1 {[1*numX]}
     # m: number of prototypes to be selected.
 
-    targetMarginal = targetMarginal / np.sum(targetMarginal)
     numY = C.shape[0]
     numX = C.shape[1]
         # Fix targetMarginal shape if needed
-    if targetMarginal.size != numX:
-        print(f"Warning: targetMarginal size {targetMarginal.size} does not match numX {numX}. Auto-fixing.")
-        targetMarginal = np.ones(numX) / numX
+    #if targetMarginal.sizec != numX:
+     #   print(f"Warning: targetMarginal size {targetMarginal.size} does not match numX {numX}. Auto-fixing.")
+    targetMarginal = np.ones(numX) / numX
     print(f"Number of sources (Y): {numY}, Number of targets (X): {numX}")
     allY = np.arange(numY)
     # just to make sure we have a row vector.
