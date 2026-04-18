@@ -1,12 +1,21 @@
+"""
+baselines/evaluation.py
+=======================
+Evaluation utilities for prototype selection experiments.
+
+Provides:
+- Cost/similarity matrix computation between source and target embeddings.
+- Uniform marginal distributions for optimal transport.
+- Dataset splitting by percentage into source and target splits.
+- End-to-end prototype selection evaluation via 1-NN classification.
+"""
+
 import torch
+import torch.nn.functional as F
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from typing import Callable, Dict
-
-
-import torch
-import torch.nn.functional as F
 
 
 def compute_cost_matrix(X_source: torch.Tensor, X_target: torch.Tensor, metric: str = "euclidean", return_sims=False) -> torch.Tensor:
@@ -44,6 +53,7 @@ def compute_cost_matrix(X_source: torch.Tensor, X_target: torch.Tensor, metric: 
 
 
 def get_uniform_marginal(n: int, device: torch.device = "cpu") -> torch.Tensor:
+    """Return a uniform probability vector of length *n* on *device*."""
     mu = torch.ones(n, device=device)
     return mu / mu.sum()
 

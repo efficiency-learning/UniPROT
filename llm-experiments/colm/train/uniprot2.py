@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import time
 from colm.train.utils import stable_entropy
 
-def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-1, dist=None, iters=10) -> List[int]:
+def greedy_uniprot(S: np.ndarray, k: int, reg: float=1e-1, dist=None, iters=10) -> List[int]:
     n = S.shape[0]
     candidates = set(range(n))
     
@@ -58,7 +58,7 @@ def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-1, dist=None, iters=10) -
     
     return P_approx_lib
 
-def greedy_fairot_old(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
+def greedy_uniprot_old(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
     """
     Greedy algorithm with approximate gain for fair prototype selection.
     Args:

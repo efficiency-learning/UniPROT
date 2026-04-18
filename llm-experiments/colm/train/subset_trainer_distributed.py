@@ -80,8 +80,8 @@ from colm.train.SPOTgreedy import SPOT_GreedySubsetSelection
 from torch.utils.data import DataLoader, SubsetRandomSampler
 import random
 import colm.train.greats as greats
-import colm.train.fairot as fairot
-import colm.train.fairot2 as fairot2
+import colm.train.uniprot as uniprot
+import colm.train.uniprot2 as uniprot2
 import json
 
 
@@ -1382,15 +1382,15 @@ class SubsetTrainer(Trainer):
             len = idx.shape[0]
             weights = torch.ones_like(idx)
             return tocpu(idx), tocpu(weights)
-        if(self.method == "fairot"):
+        if(self.method == "uniprot"):
             dist, sims = utils.compute_cost_matrix(inputs, inputs, metric="cosine", return_sims=True)
-            idx = fairot2.greedy_fairot(tocpu(sims), max_samples, dist=tocpu(dist), iters=500, reg=1e-1)
+            idx = uniprot2.greedy_uniprot(tocpu(sims), max_samples, dist=tocpu(dist), iters=500, reg=1e-1)
             idx = torch.tensor(idx)
             len = idx.shape[0]
             weights = torch.ones_like(idx)/len
             return tocpu(idx), tocpu(weights)
-        if(self.method == "fairot_multisource"):
-            lamb = lambda S,k, dist=None : fairot2.greedy_fairot(S, k , reg=1e-1, dist=dist, iters=500)
+        if(self.method == "uniprot_multisource"):
+            lamb = lambda S,k, dist=None : uniprot2.greedy_uniprot(S, k , reg=1e-1, dist=dist, iters=500)
             idx, weights = self.select_data_facloc(inputs, max_samples, source_list, 
                                            optim=lamb, metric="cosine")
             idx = torch.tensor(idx)

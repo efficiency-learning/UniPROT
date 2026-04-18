@@ -3,7 +3,7 @@
 ![Pytorch 2.2.1](https://img.shields.io/badge/pytorch-2.2.1-green)
 ![License MIT](https://img.shields.io/badge/license-MIT-blue)
 
-This repository is the official implementation of our ICLR 2025 paper [Mini-batch Coresets for Memory-efficient Language Model Training on Data Mixtures](https://arxiv.org/pdf/2407.19580).
+This repository is the official implementation of the ICLR 2025 paper [Mini-batch Coresets for Memory-efficient Language Model Training on Data Mixtures](https://arxiv.org/pdf/2407.19580).
 
 ## 🔗 Quick Links
 - [CoLM](#colm)

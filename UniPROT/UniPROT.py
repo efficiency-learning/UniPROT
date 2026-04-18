@@ -1,15 +1,42 @@
+"""
+UniPROT/UniPROT.py
+==================
+Greedy prototype selection via UniPROT.
+
+The :class:`UniPROT` class implements a submodular greedy
+algorithm that selects a compact subset of source points (prototypes) by
+maximising an entropic partial OT objective against the full target
+distribution.  Two gain-computation strategies are available:
+
+``exact``
+    Re-solves the full OT problem for every candidate at every step.
+    Guaranteed to find the greedy-optimal solution but is expensive for
+    large datasets.
+
+``approx``
+    Approximates the gain of adding a candidate using the closed-form
+    *feasible extension* of the current transport plan.  Drastically faster
+    and empirically close to the exact solution; supports stochastic candidate
+    sub-sampling for further speed-up.
+
+Optional acceleration
+---------------------
+* **Thread-parallel gain computation** – ``approx`` mode uses a
+  ``ThreadPoolExecutor`` with up to 8 workers to evaluate candidates in
+  parallel.
+* **CuPy** – if CuPy is installed the similarity matrix is kept on GPU as a
+  CuPy ndarray; otherwise NumPy is used transparently.
+"""
+
 import numpy as np
-from typing import Callable, List, Set, Tuple, Optional
+from typing import List, Tuple, Optional
 import matplotlib.pyplot as plt
 
 import torch
 import ot  # POT library
 from tqdm import tqdm
-from FairOT.sinkhorn import pot_partial_extended, pot_partial_library
-from joblib import Parallel, delayed
-
+from UniPROT.sinkhorn import pot_partial_extended, pot_partial_library
 from concurrent.futures import ThreadPoolExecutor
-import threading
 import time
 
 try:
@@ -17,42 +44,98 @@ try:
     import cupyx.scipy.sparse as cp_sparse
     CUPY_AVAILABLE = True
 except ImportError:
-    #print("Warning: CuPy not available, falling back to numpy/torch")
     CUPY_AVAILABLE = False
     cp = None
     cp_sparse = None
 
-class FairOptimalTransport:
-    def __init__(self, regularization: float = 0.05, similarity_sigma: float = 1.0, use_sparse: bool = True):
-        """
-        Initialize the prototype selector.
+class UniPROT:
+    """Greedy prototype selector based on entropic partial Optimal Transport.
+
+    The selector maximises the following submodular objective over subsets
+    *S* of size at most *k*:
+
+    .. math::
+
+        F(S) = \\max_{\\Gamma \\geq 0} \\langle S_{S,:}, \\Gamma \\rangle
+               + \\varepsilon H(\\Gamma)
+               \\quad \\text{s.t.} \\quad \\Gamma \\mathbf{1} \\leq \\mathbf{1},\\;
+               \\mathbf{1}^\\top \\Gamma \\mathbf{1} = k
+
+    where *H* is the (negative) entropic regularisation term.
+
+    Attributes:
+        reg: Entropic regularisation strength.
+        sigma: Gaussian similarity bandwidth (stored but not used internally).
+        use_sparse: Whether CuPy-backed sparse matrices are used.
+        ot_solver: The OT solver callable used for the approximate greedy
+            selection (:func:`~UniPROT.sinkhorn.pot_partial_library` by default).
+    """
+
+    def __init__(
+        self,
+        regularization: float = 0.05,
+        similarity_sigma: float = 1.0,
+        use_sparse: bool = True,
+    ):
+        """Initialise the prototype selector.
 
         Args:
-            regularization: Entropic OT regularization strength
-            similarity_sigma: Gaussian similarity parameter (unused here, placeholder)
-            use_sparse: Whether to use sparse matrices for computation
+            regularization: Entropic OT regularisation strength ε.  Larger
+                values encourage more diffuse transport plans.
+            similarity_sigma: Gaussian similarity bandwidth (placeholder;
+                not currently used in the OT computation).
+            use_sparse: If ``True`` and CuPy is available, keep the
+                similarity matrix as a CuPy array for GPU-accelerated ops.
         """
         self.reg = regularization
         self.sigma = similarity_sigma
         self.use_sparse = use_sparse and CUPY_AVAILABLE
 
         self.similarity_matrix = None
-        self.similarity_matrix_sparse = None
         self.num_examples = None
         self.ot_solver = pot_partial_library
-    #print(f"Using {'sparse' if self.use_sparse else 'dense'} OT solver")
 
     def prototype_selection(
         self,
         similarity_matrix,
         num_prototypes: int,
-    method: str = 'approx',
-    stochastic_frac: Optional[float] = None,  # Add stochastic fraction argument
-    epsilon: Optional[float] = None  # Add epsilon argument
+        method: str = "approx",
+        stochastic_frac: Optional[float] = None,
+        epsilon: Optional[float] = None,
     ) -> Tuple[List[int], List[float]]:
-        # Accepts torch.Tensor, numpy, or cupy arrays
+        """Select *num_prototypes* source points that maximise the OT objective.
+
+        Accepts ``torch.Tensor``, ``numpy.ndarray``, or ``cupy.ndarray`` as
+        input and delegates to the appropriate greedy selection method.
+
+        Args:
+            similarity_matrix: Square or rectangular similarity matrix of shape
+                ``(n_source, n_target)``.  Higher values indicate greater
+                affinity between a source point and a target point.
+            num_prototypes: Number of prototypes to select (*k*).
+            method: Gain-computation strategy.
+
+                * ``"approx"`` – fast feasible-extension approximation
+                  (recommended).
+                * ``"exact"`` – re-solve OT at every step (exact but slow).
+
+            stochastic_frac: If provided (and ``method="approx"``), randomly
+                sub-sample this fraction of remaining candidates at each step.
+                Mutually exclusive with *epsilon*.
+            epsilon: If provided, the candidate subset size is set to
+                ``(m/k) * log(1/epsilon)`` per step (stochastic-greedy bound).
+                Takes precedence over *stochastic_frac*.
+
+        Returns:
+            selected_indices: Ordered list of *k* selected source indices.
+            objective_values: OT objective after each greedy step (length
+                *k + 1*, where the first entry is the initial value of 0).
+
+        Raises:
+            TypeError: If *similarity_matrix* is not a supported array type.
+            ValueError: If an unknown *method* is requested.
+        """
         if self.use_sparse and CUPY_AVAILABLE:
-            # Convert to cupy array if not already
             if not isinstance(similarity_matrix, cp.ndarray):
                 similarity_matrix = cp.array(similarity_matrix)
             self.similarity_matrix = similarity_matrix

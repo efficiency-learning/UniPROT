@@ -1,10 +1,225 @@
+"""
+UniPROT/sinkhorn.py
+===================
+Partial Optimal Transport solvers used by :class:`UniPROT`.
+
+Two complementary implementations are provided:
+
+``pot_partial_extended``
+    Converts partial OT to a standard balanced OT problem by appending a dummy
+    source row that absorbs the unmatched mass.  Based on the extended-cost-
+    matrix formulation described in the paper.
+
+``pot_partial_library``
+    Delegates to ``ot.partial.entropic_partial_wasserstein`` from the POT
+    library.  Preferred for production use; ``pot_partial_extended`` is kept
+    for comparison and validation.
+
+``compare_partial_ot_methods``
+    Side-by-side comparison of both solvers on the same input.
+"""
+
 import numpy as np
 import ot  # POT library
 import time
 
-def pot_partial_extended(S_sub: np.ndarray, k: int, mu_P: np.ndarray,
-                        reg: float, epsilon: float = 1.0,
-                        beta: float = None) -> np.ndarray:
+
+def pot_partial_extended(
+    S_sub: np.ndarray,
+    k: int,
+    mu_P: np.ndarray,
+    reg: float,
+    epsilon: float = 1.0,
+    beta: float = None,
+) -> tuple[np.ndarray, float]:
+    """Solve partial OT via an extended (dummy-row) balanced Sinkhorn problem.
+
+    The method lifts the partial-transport problem to a standard balanced OT
+    by adding one dummy source row that collects all unassigned target mass.
+    The extended cost matrix ensures that routing mass through the dummy row
+    is always worse than any real assignment, so the solver only uses the
+    dummy when no better match exists.
+
+    Mathematically, given similarity matrix :math:`S \\in \\mathbb{R}^{m \\times n}`,
+    the extended similarity is constructed as:
+
+    .. math::
+
+        \\tilde{S}_{ij} = \\beta + S_{ij}, \\quad
+        \\tilde{S}_{\\text{dummy}, j} = \\beta - |\\epsilon_{\\min}|
+
+    where :math:`\\beta = \\max(-S) + 1` ensures all similarities are positive.
+
+    Args:
+        S_sub: Similarity (not cost) matrix of shape ``(m, n)`` for the
+            currently selected prototype subset.
+        k: Cardinality constraint – total number of prototypes to select.
+        mu_P: Source marginal of shape ``(m,)``.  Values are overridden
+            internally (each selected prototype gets weight ``1/k``).
+        reg: Entropic regularisation strength for Sinkhorn.
+        epsilon: Unused placeholder (kept for API compatibility).
+        beta: Shift constant ensuring non-negative similarities.  Auto-
+            computed as ``max(-S_sub) + 1`` when ``None``.
+
+    Returns:
+        gamma_non_dummy: Scaled OT plan of shape ``(m, n)`` excluding the
+            dummy row.
+        obj_value: Regularised OT objective value (similarity maximisation
+            with entropic bonus).
+    """
+    m, n = S_sub.shape
+
+    # Build the shift constant so all similarities are positive.
+    if beta is None:
+        C_original = -S_sub
+        beta = np.max(C_original) + 1.0
+
+    # Extended similarity: real entries get boosted by beta; dummy row is
+    # set so that routing through it is strictly sub-optimal.
+    S_extended_original = beta + S_sub
+    epsilon_min = np.min(-S_sub) - 0.01
+    S_dummy_row = (beta - abs(epsilon_min)) * np.ones((1, n))
+    S_extended = np.vstack([S_extended_original, S_dummy_row])
+    C_extended = -S_extended
+
+    # Extended source marginal: uniform over selected prototypes + dummy mass.
+    mu_selected = np.ones(m) / k
+    mu_dummy = np.array([(k - m) / k])
+    mu_P_ext = np.concatenate([mu_selected, mu_dummy])
+    mu_T_ext = np.ones(n) / n
+
+    # Solve the balanced Sinkhorn problem on the extended matrices.
+    gamma_extended = ot.sinkhorn(
+        mu_P_ext, mu_T_ext, C_extended, reg, numItermax=1000, stopThr=1e-6
+    )
+
+    # Discard the dummy row and re-scale.
+    gamma_non_dummy = m * gamma_extended[:m, :]
+
+    # Regularised objective: similarity inner product + entropic bonus.
+    obj_value = np.sum(S_sub * gamma_non_dummy)
+    mask = gamma_non_dummy > 0
+    entropy = -np.sum(gamma_non_dummy[mask] * np.log(gamma_non_dummy[mask]))
+    obj_value = obj_value + reg * entropy
+
+    return gamma_non_dummy, obj_value
+
+
+def pot_partial_library(
+    S_sub: np.ndarray,
+    k: int,
+    mu_P: np.ndarray,
+    reg: float,
+) -> tuple[np.ndarray, float]:
+    """Solve partial OT using POT's ``entropic_partial_wasserstein``.
+
+    This is the primary OT solver used by
+    :class:`~UniPROT.UniPROT.UniPROT`.  The target
+    marginal is set to ``k/n * 1_n`` so that the total transported mass equals
+    ``min(m, k)``.
+
+    Args:
+        S_sub: Similarity (not cost) matrix of shape ``(m, n)``.
+        k: Cardinality constraint – total number of prototypes.
+        mu_P: Unused (kept for API compatibility); the source marginal is
+            set to the all-ones vector internally.
+        reg: Entropic regularisation strength.
+
+    Returns:
+        gamma_star: Partial OT plan of shape ``(m, n)``.
+        obj_value: Regularised OT objective (similarity inner product minus
+            entropic term).
+    """
+    start_time = time.time()
+    m, n = S_sub.shape
+
+    C = -S_sub
+    mu_T = k * np.ones(n) / n
+    mu_P = np.ones(m)
+
+    l1_mu_P = np.sum(np.abs(mu_P))
+    l1_mu_T = np.sum(np.abs(mu_T))
+    mass_to_transport = min(m, k)
+    if mass_to_transport > min(l1_mu_P, l1_mu_T):
+        print(
+            "Warning: mass_to_transport exceeds min(|a|_1, |b|_1). "
+            "Clamping to avoid infeasibility."
+        )
+        mass_to_transport = min(l1_mu_P, l1_mu_T)
+
+    gamma_star = ot.partial.entropic_partial_wasserstein(
+        mu_P, mu_T, C, reg, numItermax=1000, m=mass_to_transport, stopThr=1e-6
+    )
+
+    # Entropic regularised objective (uses a numerically stable log).
+    obj_value = (
+        np.sum(S_sub * gamma_star)
+        - reg * np.sum(gamma_star * np.log(gamma_star + 1e-10))
+    )
+
+    elapsed = time.time() - start_time
+    print(f"Sinkhorn iterations in {elapsed:.4f}s")
+
+    return gamma_star, obj_value
+
+
+def compare_partial_ot_methods(
+    S_sub: np.ndarray,
+    k: int,
+    mu_P: np.ndarray,
+    reg: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Run both partial OT solvers and print comparative diagnostics.
+
+    Computes the relative Frobenius-norm difference and relative objective
+    difference between the extended-matrix approach and the POT library
+    implementation.
+
+    Args:
+        S_sub: Similarity matrix of shape ``(m, n)``.
+        k: Cardinality constraint.
+        mu_P: Source marginal of shape ``(m,)``.
+        reg: Entropic regularisation strength.
+
+    Returns:
+        gamma_extended: OT plan from :func:`pot_partial_extended`.
+        gamma_library: OT plan from :func:`pot_partial_library`.
+    """
+    gamma_extended, obj_extended = pot_partial_extended(S_sub, k, mu_P, reg)
+    gamma_library, obj_library = pot_partial_library(S_sub, k, mu_P, reg)
+
+    if gamma_extended.shape == gamma_library.shape:
+        rel_frob = (
+            np.linalg.norm(gamma_extended - gamma_library, "fro")
+            / np.linalg.norm(gamma_library, "fro")
+        )
+        rel_obj = (obj_extended - obj_library) / obj_library
+        print(
+            f"Relative Frobenius norm (Extended vs Partial OT): {rel_frob:.6f}"
+        )
+        print(f"Relative objective difference:                    {rel_obj:.6f}")
+        print(f"POT library objective value:                      {obj_library:.6f}")
+
+    return gamma_extended, gamma_library
+
+
+# --------------------------------------------------------------------------- #
+# Smoke test                                                                   #
+# --------------------------------------------------------------------------- #
+
+if __name__ == "__main__":
+    _n = 20
+    _P = [3, 7, 8, 19, 10]
+    _S = np.random.rand(_n, _n)
+    _S = (_S + _S.T) / 2
+    np.fill_diagonal(_S, 1.0)
+    _S_P = _S[np.ix_(_P, range(_n))]
+    _mu_P = np.ones(len(_P)) / len(_P)
+    _reg = 0.1
+    _k = 12
+
+    compare_partial_ot_methods(_S_P, _k, _mu_P, _reg)
+
     m, n = S_sub.shape
     
     # Auto-compute beta if not provided (large constant to ensure non-negative similarities)

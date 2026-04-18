@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'MMDcritic'))
 from baselines.MMDcritic.mmd_critic import Dataset, select_prototypes
 from SPOTgreedy import SPOT_GreedySubsetSelection
 from image.proto_selection_evals import data
-from FairOT.FairOptimalTransport import FairOptimalTransport
+from UniPROT.UniPROT import UniPROT
 from baselines import evaluation
 
 SEED = 42
@@ -68,15 +68,15 @@ def select_prototypes_mmd_critic(X, y, k_per_class=10, gamma=None):
     
     return prototypes_X, prototypes_y
 
-def select_prototypes_fair_ot(X, y, sims, k_per_class=10, method='approx', regularization=0.01):
+def select_prototypes_uniprot(X, y, sims, k_per_class=10, method='approx', regularization=0.01):
     """
-    Select prototypes using Fair Optimal Transport method.
+    Select prototypes using UniPROT method.
     
     Args:
         X: Feature matrix (numpy array)
         y: Labels (numpy array)
         k_per_class: Number of prototypes per class
-        method: 'approx' or 'exact' for fairOT algorithm
+        method: 'approx' or 'exact' for UniPROT algorithm
         regularization: Regularization parameter for entropic OT
     
     Returns:
@@ -87,14 +87,14 @@ def select_prototypes_fair_ot(X, y, sims, k_per_class=10, method='approx', regul
     n_source = sims.shape[0]
     total_prototypes = min(len(classes) * k_per_class, n_source)
     
-    print(f"Using Fair OT ({method}) to select {total_prototypes} prototypes...")
+    print(f"Using UniPROT ({method}) to select {total_prototypes} prototypes...")
     
-    # Initialize Fair OT selector
-    fair_ot = FairOptimalTransport(regularization=regularization)
+    # Initialize UniPROT selector
+    uniprot = UniPROT(regularization=regularization)
     
-    # Select prototypes using Fair OT
+    # Select prototypes using UniPROT
     sims = torch.from_numpy(sims).to("cuda")
-    selected_indices, objectives = fair_ot.prototype_selection(sims, total_prototypes, method=method)
+    selected_indices, objectives = uniprot.prototype_selection(sims, total_prototypes, method=method)
     
     # Handle different return types
     if isinstance(selected_indices, torch.Tensor):
@@ -126,11 +126,11 @@ def prototype_selection(X, y, target_X, target_y, k_per_class=10, method='spotgr
         return prototype_selection_uniform(X, y, k_per_class)
     elif method == 'mmd_critic':
         return select_prototypes_mmd_critic(X, y, k_per_class)
-    elif method == 'fairot_approx':
-        return select_prototypes_fair_ot(X, y, sims, k_per_class, method='approx')
-    elif method == 'fairot_exact':
+    elif method == 'uniprot_approx':
+        return select_prototypes_uniprot(X, y, sims, k_per_class, method='approx')
+    elif method == 'uniprot_exact':
         with torch.no_grad():
-            return select_prototypes_fair_ot(X, y, sims, k_per_class, method='exact')
+            return select_prototypes_uniprot(X, y, sims, k_per_class, method='exact')
     
     # Use SPOTgreedy for prototype selection
     classes = np.unique(y)
@@ -188,11 +188,11 @@ def prototype_selection_with_count(X, y, target_X, target_y, total_prototypes=50
     dist, sims = dist.cpu().numpy(), sims.cpu().numpy()
     print(f"DEBUG: Computed similarity matrix shape: {sims.shape}")
     
-    if method == 'fairot_approx':
-        return select_prototypes_fair_ot_count(X, y, sims, total_prototypes, method='approx')
-    elif method == 'fairot_exact':
+    if method == 'uniprot_approx':
+        return select_prototypes_uniprot_count(X, y, sims, total_prototypes, method='approx')
+    elif method == 'uniprot_exact':
         with torch.no_grad():
-            return select_prototypes_fair_ot_count(X, y, sims, total_prototypes, method='exact')
+            return select_prototypes_uniprot_count(X, y, sims, total_prototypes, method='exact')
     
     # Use SPOTgreedy for prototype selection
     total_prototypes = min(total_prototypes, len(X))
@@ -257,16 +257,16 @@ def select_prototypes_mmd_critic_count(X, y, total_prototypes=50, gamma=None):
     
     return prototypes_X, prototypes_y
 
-def select_prototypes_fair_ot_count(X, y, sims, total_prototypes=50, method='approx', regularization=0.01):
+def select_prototypes_uniprot_count(X, y, sims, total_prototypes=50, method='approx', regularization=0.01):
     """
-    Select specific total number of prototypes using Fair OT.
+    Select specific total number of prototypes using UniPROT.
     
     Args:
         X: Feature matrix (numpy array)
         y: Labels (numpy array)
         sims: Similarity matrix (numpy array)
         total_prototypes: Total number of prototypes to select
-        method: 'approx' or 'exact' for fairOT algorithm
+        method: 'approx' or 'exact' for UniPROT algorithm
         regularization: Regularization parameter for entropic OT
     
     Returns:
@@ -275,14 +275,14 @@ def select_prototypes_fair_ot_count(X, y, sims, total_prototypes=50, method='app
     """
     total_prototypes = min(total_prototypes, len(X))
     
-    print(f"Using Fair OT ({method}) to select {total_prototypes} prototypes...")
+    print(f"Using UniPROT ({method}) to select {total_prototypes} prototypes...")
     print(f"DEBUG: Input sims shape: {sims.shape}, X shape: {X.shape}")
     
     # Add some randomness to break potential caching/determinism
     np.random.seed(None)  # Reset seed to ensure randomness
     
-    # Initialize Fair OT selector with varied regularization
-    fair_ot = FairOptimalTransport(regularization=regularization)
+    # Initialize UniPROT selector with varied regularization
+    uniprot = UniPROT(regularization=regularization)
     
     # Convert sims to torch tensor if it's not already
     if isinstance(sims, np.ndarray):
@@ -293,8 +293,8 @@ def select_prototypes_fair_ot_count(X, y, sims, total_prototypes=50, method='app
     print(f"DEBUG: sims_torch shape: {sims_torch.shape}")
     
     try:
-        # Select prototypes using Fair OT
-        selected_indices, objectives = fair_ot.prototype_selection(sims_torch, total_prototypes, method=method)
+        # Select prototypes using UniPROT
+        selected_indices, objectives = uniprot.prototype_selection(sims_torch, total_prototypes, method=method)
         print(f"DEBUG: Fair OT returned indices type: {type(selected_indices)}")
         
         # Handle different return types and ensure we get numpy indices
@@ -922,8 +922,8 @@ def run_experiments(dataset_name, total_target=1000, k_proto=10, skew_percent_li
 
 if __name__ == "__main__":
     # Test with small datasets first and fewer runs for faster testing
-    #methods_to_test = ['spotgreedy', 'mmd_critic', 'fairot_approx', 'fairot_exact', 'uniform']
-    methods_to_test = ['fairot_approx']  # Reduced for faster testing
+    #methods_to_test = ['spotgreedy', 'mmd_critic', 'uniprot_approx', 'uniprot_exact', 'uniform']
+    methods_to_test = ['uniprot_approx']  # Reduced for faster testing
     print("Starting comprehensive protorSPOtype selection evaluation...")
     print(f"Methods to test: {', '.join(methods_to_test)}")
     print("=" * 80)

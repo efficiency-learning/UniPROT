@@ -3,7 +3,7 @@ from typing import Callable, List, Set
 from colm.train.sinkhorn import pot_partial_extended
 import matplotlib.pyplot as plt
 from colm.train.utils import stable_entropy
-def greedy_fairot(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
+def greedy_uniprot(S: np.ndarray, k: int, reg: float=1e-2) -> List[int]:
 
     n = S.shape[0]
     P = []
