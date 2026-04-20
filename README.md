@@ -170,17 +170,6 @@ Supported `--data_selection_method` values: `none`, `facility_location`, `greedy
 
 ---
 
-## Methods
-
-| Method | File | Complexity | Notes |
-|--------|------|-----------|-------|
-| **UniPROT (approx)** | `UniPROT/UniPROT.py` | $O(k \cdot mn)$ | Fast; supports stochastic subsampling |
-| **UniPROT (exact)** | `UniPROT/UniPROT.py` | $O(k^2 \cdot mn)$ | Re-solves full OT at every step |
-| **SPOT-Greedy** | `baselines/SPOTgreedy.py` | $O(k \cdot mn)$ | Coverage minimisation baseline |
-| **MMD-Critic** | `baselines/MMDcritic/` | $O(k \cdot m^2)$ | RBF-kernel maximum mean discrepancy |
-| **Uniform random** | — | $O(1)$ | Per-class random sample |
-
----
 
 ## Datasets
 
