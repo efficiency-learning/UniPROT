@@ -170,21 +170,6 @@ Supported `--data_selection_method` values: `none`, `facility_location`, `greedy
 
 ---
 
-
-## Datasets
-
-| Dataset | Domain | Size | Used in |
-|---------|--------|------|---------|
-| MNIST | Vision | 70 K | Image experiments |
-| USPS | Vision | 9.3 K | Image experiments |
-| Letter (UCI) | Tabular | 20 K | Image experiments |
-| TinyImageNet | Vision | 100 K / 200 classes | Image experiments & baselines |
-| Flickr30K | Vision | 30 K | Large-scale image experiments |
-| SuperGLUE | NLP | Task-dependent | LLM fine-tuning |
-| MATH / SVAMP / AQuA | NLP | Task-dependent | Math reasoning evaluation |
-
----
-
 ## Citation
 
 If you use UniPROT in your research, please cite:
